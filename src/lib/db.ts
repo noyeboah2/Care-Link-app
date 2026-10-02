@@ -52,6 +52,10 @@ const SCHEMA = [
     at INTEGER NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_attempts_email ON login_attempts(email, at)`,
+  `CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`,
 ];
 
 // Columns added after the first release. Added only if missing.
@@ -87,8 +91,24 @@ export async function getDb(): Promise<Db> {
   return db;
 }
 
-export async function getSetupCode(): Promise<string | null> {
+export type SetupInfo = {
+  code: string | null;
+  source: 'secret' | 'database' | null;
+  secretStatus: 'missing' | 'too_short' | 'ok';
+};
+
+// The setup code can come from the SETUP_CODE secret (preferred) or, as a backup,
+// from a row in the settings table: key = 'setup_code'. Both need 8+ characters.
+export async function getSetupInfo(db: Db): Promise<SetupInfo> {
   const { env } = await getCloudflareContext({ async: true });
-  const code = (env as unknown as { SETUP_CODE?: string }).SETUP_CODE;
-  return typeof code === 'string' && code.length >= 8 ? code : null;
+  const secret = (env as unknown as { SETUP_CODE?: unknown }).SETUP_CODE;
+  const secretStatus: SetupInfo['secretStatus'] =
+    typeof secret !== 'string' || secret.length === 0 ? 'missing' : secret.length < 8 ? 'too_short' : 'ok';
+  if (secretStatus === 'ok') return { code: secret as string, source: 'secret', secretStatus };
+
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'setup_code'").first<{ value: string }>();
+  if (row && typeof row.value === 'string' && row.value.trim().length >= 8) {
+    return { code: row.value.trim(), source: 'database', secretStatus };
+  }
+  return { code: null, source: null, secretStatus };
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb, getSetupCode } from '@/lib/db';
+import { getDb, getSetupInfo } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -16,11 +16,15 @@ export async function GET(request: Request) {
     }
     const count = await db.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>();
     const needsSetup = (count?.n ?? 0) === 0;
+    if (!needsSetup) return NextResponse.json({ success: true, user: null, needsSetup: false });
+    const info = await getSetupInfo(db);
     return NextResponse.json({
       success: true,
       user: null,
-      needsSetup,
-      setupEnabled: needsSetup ? (await getSetupCode()) !== null : undefined,
+      needsSetup: true,
+      setupEnabled: info.code !== null,
+      setupSource: info.source,
+      secretStatus: info.secretStatus,
     });
   } catch (err) {
     console.error('GET /api/auth/me failed', err);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb, getSetupCode } from '@/lib/db';
+import { getDb, getSetupInfo } from '@/lib/db';
 import { createSession, hashPassword, normalizeEmail, sameOrigin, setSessionCookie, validPassword, MIN_PASSWORD } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -12,10 +12,10 @@ export async function POST(request: Request) {
   try {
     if (!sameOrigin(request)) return fail('Request blocked', 403);
     const body = (await request.json()) as Record<string, unknown>;
-    const code = await getSetupCode();
-    if (!code) return fail('Setup is not enabled. Add the SETUP_CODE secret in Cloudflare first.', 503);
-
     const db = await getDb();
+    const { code } = await getSetupInfo(db);
+    if (!code) return fail('Setup is not enabled yet. A setup code has not been configured.', 503);
+
     const existing = await db.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>();
     if ((existing?.n ?? 0) > 0) return fail('Setup is already finished', 409);
 
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       .run();
     if (!result.meta?.changes) return fail('Setup is already finished', 409);
 
+    await db.prepare("DELETE FROM settings WHERE key = 'setup_code'").run();
     const token = await createSession(db, id);
     const response = NextResponse.json({ success: true });
     setSessionCookie(response, request, token);

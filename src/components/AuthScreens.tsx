@@ -111,7 +111,7 @@ export function SetupScreen({ setupEnabled, onDone }: { setupEnabled: boolean; o
     <Shell title="Set up CareLink" subtitle="Create the first administrator account">
       {!setupEnabled && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-          Setup is locked. In Cloudflare, add a secret named <b>SETUP_CODE</b> (at least 8 characters) to this Worker, then reload this page.
+          Setup is locked because no setup code has been configured yet. Open <b>/api/auth/me</b> on this site to see why, or ask the developer.
         </p>
       )}
       <form onSubmit={submit} className="space-y-4">
