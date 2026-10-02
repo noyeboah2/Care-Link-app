@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "carelink-scd-ghana",
+  "name": "care-link-app",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-29",
   "compatibility_flags": ["nodejs_compat"],
@@ -8,6 +8,13 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "carelink-db",
+      "database_id": "93d72c4f-53bb-487d-b2e3-79cb84dd8caa"
+    }
+  ],
   "observability": {
     "enabled": true
   }

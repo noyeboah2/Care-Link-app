@@ -7,10 +7,10 @@ import { ScdScreeningWizard } from '@/components/ScdScreeningWizard';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'worker' | 'supervisor' | 'screening'>('worker');
-  const [screeningChild, setScreeningChild] = useState('New Child');
+  const [screeningChild, setScreeningChild] = useState<{ id: string | null; name: string }>({ id: null, name: 'New Child' });
 
-  const startScreening = (childName: string) => {
-    setScreeningChild(childName);
+  const startScreening = (child: { id: string; name: string }) => {
+    setScreeningChild(child);
     setActiveTab('screening');
   };
 
@@ -66,7 +66,7 @@ export default function Home() {
         {activeTab === 'worker' && <HealthWorkerDashboard onStartScreening={startScreening} />}
         {activeTab === 'screening' && (
           <div className="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-            <ScdScreeningWizard childName={screeningChild} onComplete={completeScreening} />
+            <ScdScreeningWizard key={screeningChild.id ?? 'none'} childName={screeningChild.name} childId={screeningChild.id} onComplete={completeScreening} />
           </div>
         )}
         {activeTab === 'supervisor' && <SupervisorDashboard />}

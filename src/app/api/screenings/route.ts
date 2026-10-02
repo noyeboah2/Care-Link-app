@@ -1,59 +1,41 @@
 import { NextResponse } from 'next/server';
+import { getDb } from '@/lib/db';
+import { SCREENING_QUESTIONS, scoreAnswers } from '@/lib/risk';
 
-type ScreeningBody = {
-  babyName?: unknown;
-  ageMonths?: unknown;
-  jaundicePresent?: unknown;
-  dactylitisPresent?: unknown;
-  familyScdHistory?: unknown;
-  regionalHospital?: unknown;
-};
-
-const isTrue = (value: unknown): value is true => value === true;
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as ScreeningBody;
+    const body = (await request.json()) as { childId?: unknown; answers?: unknown };
 
-    if (typeof body.babyName !== 'string' || !body.babyName.trim()) {
-      return NextResponse.json(
-        { success: false, error: 'babyName is required' },
-        { status: 400 },
-      );
+    if (typeof body.childId !== 'string' || !body.childId) {
+      return NextResponse.json({ success: false, error: 'childId is required' }, { status: 400 });
+    }
+    if (typeof body.answers !== 'object' || body.answers === null) {
+      return NextResponse.json({ success: false, error: 'answers are required' }, { status: 400 });
     }
 
-    // Preserve the application's existing screening rules.
-    let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
-    if (isTrue(body.jaundicePresent) && isTrue(body.dactylitisPresent)) {
-      riskLevel = 'HIGH';
-    } else if (
-      isTrue(body.jaundicePresent) ||
-      isTrue(body.dactylitisPresent) ||
-      isTrue(body.familyScdHistory)
-    ) {
-      riskLevel = 'MEDIUM';
+    // Keep only known questions with boolean answers; score on the server.
+    const raw = body.answers as Record<string, unknown>;
+    const answers: Record<string, boolean> = {};
+    for (const q of SCREENING_QUESTIONS) answers[q.id] = raw[q.id] === true;
+    const { score, riskLevel } = scoreAnswers(answers);
+
+    const db = await getDb();
+    const child = await db.prepare('SELECT id FROM children WHERE id = ?').bind(body.childId).first();
+    if (!child) {
+      return NextResponse.json({ success: false, error: 'Child not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        babyName: body.babyName.trim(),
-        ageMonths: typeof body.ageMonths === 'number' ? body.ageMonths : null,
-        riskLevel,
-        recommendedAction:
-          riskLevel === 'HIGH'
-            ? 'Immediate HPLC / Electrophoresis test required at regional facility.'
-            : 'Routine neonatal follow-up scheduled.',
-        assignedHospital:
-          typeof body.regionalHospital === 'string' && body.regionalHospital.trim()
-            ? body.regionalHospital.trim()
-            : 'Korle Bu Teaching Hospital',
-      },
-    });
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Invalid screening request' },
-      { status: 400 },
-    );
+    const id = crypto.randomUUID();
+    await db
+      .prepare('INSERT INTO screenings (id, child_id, answers, score, risk_level) VALUES (?, ?, ?, ?, ?)')
+      .bind(id, body.childId, JSON.stringify(answers), score, riskLevel)
+      .run();
+
+    return NextResponse.json({ success: true, data: { id, score, riskLevel } });
+  } catch (err) {
+    console.error('POST /api/screenings failed', err);
+    return NextResponse.json({ success: false, error: 'Could not save the screening' }, { status: 500 });
   }
 }

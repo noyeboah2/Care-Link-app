@@ -1,27 +1,17 @@
 import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle, PhoneCall, ArrowLeft, HeartPulse, Building2 } from 'lucide-react';
 import { TwiAudioPlayer } from './TwiAudioPlayer';
+import { SCREENING_QUESTIONS, scoreAnswers } from '@/lib/risk';
 
-interface Question {
-  id: string;
-  text: string;
-  subtext: string;
-  weight: number;
-}
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'unsaved';
 
-const SCREENING_QUESTIONS: Question[] = [
-  { id: 'jaundice', text: 'Does the child show yellowing in the eyes or skin (Jaundice)?', subtext: 'Look closely at the sclera in daylight.', weight: 3 },
-  { id: 'severePain', text: 'Has the child experienced severe, unexplained bone or joint pain?', subtext: 'Episodes lasting hours or days.', weight: 4 },
-  { id: 'dactylitis', text: 'Is there painful swelling of the hands or feet (Dactylitis)?', subtext: 'Common early symptom in infants under 2 years.', weight: 4 },
-  { id: 'fatigue', text: 'Does the child experience extreme tiredness or pale skin/lips?', subtext: 'Signs of severe anemia.', weight: 2 },
-  { id: 'fever', text: 'Does the child currently have a high fever (≥38.5°C)?', subtext: 'Infection risk is critically elevated in SCD.', weight: 3 },
-];
-
-export const ScdScreeningWizard: React.FC<{ childName: string; onComplete: () => void }> = ({ childName, onComplete }) => {
+export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string | null; onComplete: () => void }> = ({ childName, childId = null, onComplete }) => {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<'HIGH_RISK' | 'LOW_RISK' | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [finalAnswers, setFinalAnswers] = useState<Record<string, boolean>>({});
 
   const currentQ = SCREENING_QUESTIONS[step];
   const progressPercent = ((step + 1) / SCREENING_QUESTIONS.length) * 100;
@@ -37,18 +27,60 @@ export const ScdScreeningWizard: React.FC<{ childName: string; onComplete: () =>
     }
   };
 
-  const evaluateRisk = (finalAnswers: Record<string, boolean>) => {
+  const saveScreening = async (answersToSave: Record<string, boolean>) => {
+    if (!childId) {
+      setSaveStatus('unsaved');
+      return;
+    }
+    setSaveStatus('saving');
+    try {
+      const res = await fetch('/api/screenings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childId, answers: answersToSave }),
+      });
+      const data = (await res.json()) as { success: boolean };
+      setSaveStatus(res.ok && data.success ? 'saved' : 'error');
+    } catch {
+      setSaveStatus('error');
+    }
+  };
+
+  const evaluateRisk = (answersFinal: Record<string, boolean>) => {
     setIsSubmitting(true);
-    let totalScore = 0;
-    SCREENING_QUESTIONS.forEach((q) => {
-      if (finalAnswers[q.id]) totalScore += q.weight;
-    });
+    setFinalAnswers(answersFinal);
+    const { riskLevel } = scoreAnswers(answersFinal);
+    void saveScreening(answersFinal);
 
     setTimeout(() => {
       setIsSubmitting(false);
-      setResult(totalScore >= 5 ? 'HIGH_RISK' : 'LOW_RISK');
+      setResult(riskLevel);
     }, 600);
   };
+
+  const saveBanner = (
+    <div
+      className={`text-xs font-semibold text-center rounded-xl px-3 py-2 ${
+        saveStatus === 'saved'
+          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+          : saveStatus === 'error'
+          ? 'bg-red-50 text-red-800 border border-red-200'
+          : 'bg-amber-50 text-amber-800 border border-amber-200'
+      }`}
+    >
+      {saveStatus === 'saving' && 'Saving result...'}
+      {saveStatus === 'saved' && 'Result saved to the child’s record.'}
+      {saveStatus === 'unsaved' && 'Not saved: start the screening from a child’s card on the dashboard.'}
+      {saveStatus === 'error' && (
+        <span>
+          Could not save the result.{' '}
+          <button onClick={() => saveScreening(finalAnswers)} className="underline font-bold">
+            Try again
+          </button>
+        </span>
+      )}
+    </div>
+  );
 
   if (isSubmitting) {
     return (
@@ -105,6 +137,8 @@ export const ScdScreeningWizard: React.FC<{ childName: string; onComplete: () =>
           </a>
         </div>
 
+        {saveBanner}
+
         <button
           onClick={onComplete}
           className="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition"
@@ -132,11 +166,13 @@ export const ScdScreeningWizard: React.FC<{ childName: string; onComplete: () =>
           textTwi="Ma abofra no nsu pii da biara. Ma no Folic Acid nnuru na hwɛ se ogye aduro a ɛbɔ ne ho ban bere biara."
         />
 
+        {saveBanner}
+
         <button
           onClick={onComplete}
           className="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition"
         >
-          Complete Screening & Save
+          Done
         </button>
       </div>
     );

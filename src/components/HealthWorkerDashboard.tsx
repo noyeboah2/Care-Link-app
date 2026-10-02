@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Wifi, WifiOff, Bell, UserPlus, Search,
-  Clock, ChevronRight, Phone, Shield
+  Clock, ChevronRight, Phone, Shield, X, Loader2
 } from 'lucide-react';
 
 interface ChildSummary {
@@ -10,26 +10,112 @@ interface ChildSummary {
   age: number;
   gender: string;
   caregiverPhone: string;
+  followUpDate: string | null;
   lastRisk: 'HIGH_RISK' | 'LOW_RISK' | 'PENDING';
   followUpStatus: 'PENDING' | 'OVERDUE' | 'COMPLETED';
 }
 
-const MOCK_CHILDREN: ChildSummary[] = [
-  { id: '1', fullName: 'Kofi Addo', age: 4, gender: 'Male', caregiverPhone: '+233244123456', lastRisk: 'HIGH_RISK', followUpStatus: 'OVERDUE' },
-  { id: '2', fullName: 'Ama Serwaa', age: 2, gender: 'Female', caregiverPhone: '+233555987654', lastRisk: 'LOW_RISK', followUpStatus: 'PENDING' },
-  { id: '3', fullName: 'Kwaku Osei', age: 6, gender: 'Male', caregiverPhone: '+233201122334', lastRisk: 'HIGH_RISK', followUpStatus: 'PENDING' },
-];
+interface Stats {
+  totalActive: number;
+  followUpsToday: number;
+  pendingScreenings: number;
+  crisisAlerts: number;
+}
 
-export const HealthWorkerDashboard: React.FC<{ onStartScreening: (childName: string) => void }> = ({ onStartScreening }) => {
+const EMPTY_STATS: Stats = { totalActive: 0, followUpsToday: 0, pendingScreenings: 0, crisisAlerts: 0 };
+
+export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: string; name: string }) => void }> = ({ onStartScreening }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'assigned' | 'upcoming' | 'overdue'>('assigned');
+  const [children, setChildren] = useState<ChildSummary[]>([]);
+  const [stats, setStats] = useState<Stats>(EMPTY_STATS);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '' });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const filteredChildren = MOCK_CHILDREN.filter(
-    (c) =>
+  const loadCases = useCallback(async () => {
+    setLoadError('');
+    try {
+      const res = await fetch('/api/children', { cache: 'no-store' });
+      const data = (await res.json()) as { success: boolean; children?: ChildSummary[]; stats?: Stats; error?: string };
+      if (!res.ok || !data.success) throw new Error(data.error || 'Could not load cases');
+      setChildren(data.children ?? []);
+      setStats(data.stats ?? EMPTY_STATS);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Could not load cases');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCases();
+  }, [loadCases]);
+
+  const openModal = () => {
+    setForm({ fullName: '', age: '', gender: 'Male', caregiverPhone: '' });
+    setErrors({});
+    setSaveError('');
+    setShowModal(true);
+  };
+
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (form.fullName.trim().length < 2) e.fullName = "Enter the child's full name";
+    const age = Number(form.age);
+    if (form.age === '' || !Number.isInteger(age) || age < 0 || age > 18) e.age = 'Enter an age from 0 to 18';
+    const phone = form.caregiverPhone.replace(/[\s-]/g, '');
+    if (!/^(\+233|0)\d{9}$/.test(phone)) e.caregiverPhone = 'Use a Ghana number, e.g. 0244123456';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const saveCase = async (startScreeningNow: boolean) => {
+    if (!validate()) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      const res = await fetch('/api/children', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: form.fullName,
+          age: Number(form.age),
+          gender: form.gender,
+          caregiverPhone: form.caregiverPhone,
+        }),
+      });
+      const data = (await res.json()) as { success: boolean; child?: ChildSummary; error?: string };
+      if (!res.ok || !data.success || !data.child) throw new Error(data.error || 'Could not save the case');
+      setShowModal(false);
+      if (startScreeningNow) {
+        onStartScreening({ id: data.child.id, name: data.child.fullName });
+      } else {
+        await loadCases();
+      }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save the case');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const filteredChildren = children.filter((c) => {
+    const matchesSearch =
       c.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.caregiverPhone.includes(searchQuery)
-  );
+      c.caregiverPhone.includes(searchQuery);
+    const matchesTab =
+      activeTab === 'assigned' ||
+      (activeTab === 'overdue' && c.followUpStatus === 'OVERDUE') ||
+      (activeTab === 'upcoming' && c.followUpDate !== null && c.followUpDate >= today);
+    return matchesSearch && matchesTab;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 max-w-md mx-auto border-x border-slate-200 shadow-2xl flex flex-col">
@@ -62,19 +148,19 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (childName: str
       <section className="p-4 grid grid-cols-2 gap-3 bg-blue-950 text-white">
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
           <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Total Active Cases</span>
-          <p className="text-2xl font-black text-white mt-1">42</p>
+          <p className="text-2xl font-black text-white mt-1">{stats.totalActive}</p>
         </div>
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
           <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Today's Follow-ups</span>
-          <p className="text-2xl font-black text-emerald-400 mt-1">8</p>
+          <p className="text-2xl font-black text-emerald-400 mt-1">{stats.followUpsToday}</p>
         </div>
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
           <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Pending Screenings</span>
-          <p className="text-2xl font-black text-amber-400 mt-1">5</p>
+          <p className="text-2xl font-black text-amber-400 mt-1">{stats.pendingScreenings}</p>
         </div>
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
           <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Crisis Alerts</span>
-          <p className="text-2xl font-black text-red-500 mt-1">2</p>
+          <p className="text-2xl font-black text-red-500 mt-1">{stats.crisisAlerts}</p>
         </div>
       </section>
 
@@ -104,6 +190,35 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (childName: str
           ))}
         </div>
 
+        {loading && (
+          <div className="flex items-center justify-center py-10 text-slate-500 text-sm font-medium space-x-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Loading cases...</span>
+          </div>
+        )}
+
+        {!loading && loadError && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm text-center space-y-2">
+            <p className="font-semibold">{loadError}</p>
+            <button onClick={() => { setLoading(true); void loadCases(); }} className="underline font-bold">
+              Try again
+            </button>
+          </div>
+        )}
+
+        {!loading && !loadError && filteredChildren.length === 0 && (
+          <div className="text-center py-10 text-slate-500 text-sm space-y-1">
+            <p className="font-bold text-slate-700">
+              {children.length === 0 ? 'No cases yet' : 'No matching cases'}
+            </p>
+            <p>
+              {children.length === 0
+                ? 'Tap “New Case” to add your first child.'
+                : 'Try a different search or tab.'}
+            </p>
+          </div>
+        )}
+
         <div className="space-y-3">
           {filteredChildren.map((child) => (
             <div
@@ -126,10 +241,12 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (childName: str
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       child.lastRisk === 'HIGH_RISK'
                         ? 'bg-red-100 text-red-700'
+                        : child.lastRisk === 'PENDING'
+                        ? 'bg-slate-100 text-slate-600'
                         : 'bg-emerald-100 text-emerald-700'
                     }`}
                   >
-                    {child.lastRisk.replace('_', ' ')}
+                    {child.lastRisk === 'PENDING' ? 'NOT SCREENED' : child.lastRisk.replace('_', ' ')}
                   </span>
                   {child.followUpStatus === 'OVERDUE' && (
                     <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full flex items-center space-x-1">
@@ -141,7 +258,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (childName: str
               </div>
 
               <button
-                onClick={() => onStartScreening(child.fullName)}
+                onClick={() => onStartScreening({ id: child.id, name: child.fullName })}
                 className="bg-blue-900 hover:bg-blue-800 text-white p-3 rounded-xl shadow-md active:scale-95 transition"
                 aria-label="Start Screening"
               >
@@ -153,12 +270,94 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (childName: str
       </main>
 
       <button
-        onClick={() => alert('New Case Modal')}
+        onClick={openModal}
         className="fixed bottom-6 right-6 bg-blue-900 text-white font-bold p-4 rounded-full shadow-2xl flex items-center space-x-2 hover:bg-blue-800 active:scale-90 transition z-40 border-2 border-white"
       >
         <UserPlus className="w-6 h-6" />
         <span className="text-sm pr-1">New Case</span>
       </button>
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+          <div className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900">New Case</h2>
+              <button onClick={() => setShowModal(false)} aria-label="Close" className="p-1 text-slate-500 hover:text-slate-900">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-600">Child's full name</label>
+              <input
+                value={form.fullName}
+                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                placeholder="e.g. Kofi Addo"
+              />
+              {errors.fullName && <p className="text-xs text-red-600 mt-1">{errors.fullName}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600">Age (years)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={18}
+                  value={form.age}
+                  onChange={(e) => setForm({ ...form, age: e.target.value })}
+                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                />
+                {errors.age && <p className="text-xs text-red-600 mt-1">{errors.age}</p>}
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600">Gender</label>
+                <select
+                  value={form.gender}
+                  onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                >
+                  <option>Male</option>
+                  <option>Female</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-600">Caregiver phone</label>
+              <input
+                type="tel"
+                value={form.caregiverPhone}
+                onChange={(e) => setForm({ ...form, caregiverPhone: e.target.value })}
+                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                placeholder="0244123456"
+              />
+              {errors.caregiverPhone && <p className="text-xs text-red-600 mt-1">{errors.caregiverPhone}</p>}
+            </div>
+
+            {saveError && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{saveError}</p>
+            )}
+
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                onClick={() => saveCase(true)}
+                disabled={saving}
+                className="w-full bg-blue-900 hover:bg-blue-800 disabled:opacity-60 text-white font-bold py-3 rounded-xl active:scale-95 transition"
+              >
+                {saving ? 'Saving...' : 'Save & Start Screening'}
+              </button>
+              <button
+                onClick={() => saveCase(false)}
+                disabled={saving}
+                className="w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-800 font-bold py-3 rounded-xl transition"
+              >
+                Save Only
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
