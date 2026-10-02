@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { canSeeAll, requireUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,17 +13,22 @@ type Row = {
   last_risk: 'HIGH_RISK' | 'LOW_RISK' | null;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const db = await getDb();
+    const auth = await requireUser(request);
+    if ('error' in auth) return auth.error;
+    const { user, db } = auth;
+    const onlyMine = !canSeeAll(user.role);
     const { results } = await db
       .prepare(
         `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date,
            (SELECT s.risk_level FROM screenings s WHERE s.child_id = c.id
             ORDER BY s.created_at DESC, s.rowid DESC LIMIT 1) AS last_risk
          FROM children c
+         ${onlyMine ? 'WHERE c.created_by = ?' : ''}
          ORDER BY c.created_at DESC, c.rowid DESC`,
       )
+      .bind(...(onlyMine ? [user.id] : []))
       .all<Row>();
 
     const today = new Date().toISOString().slice(0, 10);
@@ -55,6 +60,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireUser(request);
+    if ('error' in auth) return auth.error;
+    const { user, db } = auth;
     const body = (await request.json()) as Record<string, unknown>;
 
     const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : '';
@@ -76,11 +84,10 @@ export async function POST(request: Request) {
     }
     const phone = rawPhone.startsWith('0') ? '+233' + rawPhone.slice(1) : rawPhone;
 
-    const db = await getDb();
     const id = crypto.randomUUID();
     await db
-      .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone) VALUES (?, ?, ?, ?, ?)')
-      .bind(id, fullName, age, gender, phone)
+      .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(id, fullName, age, gender, phone, user.id)
       .run();
 
     return NextResponse.json({

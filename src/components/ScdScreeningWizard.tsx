@@ -39,6 +39,7 @@ export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ childId, answers: answersToSave }),
       });
+      if (res.status === 401) { window.location.reload(); return; }
       const data = (await res.json()) as { success: boolean };
       setSaveStatus(res.ok && data.success ? 'saved' : 'error');
     } catch {

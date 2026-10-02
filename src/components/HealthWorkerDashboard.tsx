@@ -42,6 +42,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
     setLoadError('');
     try {
       const res = await fetch('/api/children', { cache: 'no-store' });
+      if (res.status === 401) { window.location.reload(); return; }
       const data = (await res.json()) as { success: boolean; children?: ChildSummary[]; stats?: Stats; error?: string };
       if (!res.ok || !data.success) throw new Error(data.error || 'Could not load cases');
       setChildren(data.children ?? []);
@@ -90,6 +91,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
           caregiverPhone: form.caregiverPhone,
         }),
       });
+      if (res.status === 401) { window.location.reload(); return; }
       const data = (await res.json()) as { success: boolean; child?: ChildSummary; error?: string };
       if (!res.ok || !data.success || !data.child) throw new Error(data.error || 'Could not save the case');
       setShowModal(false);

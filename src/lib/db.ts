@@ -2,7 +2,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 interface Stmt {
   bind(...values: unknown[]): Stmt;
-  run(): Promise<unknown>;
+  run(): Promise<{ meta?: { changes?: number } }>;
   all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
   first<T = Record<string, unknown>>(): Promise<T | null>;
 }
@@ -30,9 +30,47 @@ const SCHEMA = [
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE INDEX IF NOT EXISTS idx_screenings_child ON screenings(child_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    must_change INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`,
+  `CREATE TABLE IF NOT EXISTS login_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL,
+    at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_attempts_email ON login_attempts(email, at)`,
+];
+
+// Columns added after the first release. Added only if missing.
+const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
+  ['children', 'created_by', 'created_by TEXT'],
+  ['screenings', 'recorded_by', 'recorded_by TEXT'],
 ];
 
 let ready: Promise<void> | null = null;
+
+async function setup(db: Db) {
+  await db.batch(SCHEMA.map((s) => db.prepare(s)));
+  for (const [table, column, ddl] of ADDED_COLUMNS) {
+    const { results } = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+    if (!results.some((r) => r.name === column)) {
+      await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${ddl}`).run();
+    }
+  }
+}
 
 // Returns the D1 database and makes sure the tables exist (safe to run repeatedly).
 export async function getDb(): Promise<Db> {
@@ -40,14 +78,17 @@ export async function getDb(): Promise<Db> {
   const db = (env as unknown as { DB?: Db }).DB;
   if (!db) throw new Error('D1 binding "DB" is missing. Check wrangler.jsonc.');
   if (!ready) {
-    ready = db
-      .batch(SCHEMA.map((s) => db.prepare(s)))
-      .then(() => undefined)
-      .catch((err) => {
-        ready = null;
-        throw err;
-      });
+    ready = setup(db).catch((err) => {
+      ready = null;
+      throw err;
+    });
   }
   await ready;
   return db;
+}
+
+export async function getSetupCode(): Promise<string | null> {
+  const { env } = await getCloudflareContext({ async: true });
+  const code = (env as unknown as { SETUP_CODE?: string }).SETUP_CODE;
+  return typeof code === 'string' && code.length >= 8 ? code : null;
 }
