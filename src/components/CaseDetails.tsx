@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { X, Phone, Loader2, CalendarClock, Trash2, Pencil, ClipboardCheck } from 'lucide-react';
+import { X, Phone, Loader2, CalendarClock, Trash2, Pencil, ClipboardCheck, MapPin } from 'lucide-react';
+import { AREAS, areaLabel } from '@/lib/hospitals';
+import { ReferralCard } from '@/components/ReferralCard';
 
 interface Detail {
   id: string;
@@ -8,6 +10,7 @@ interface Detail {
   gender: string;
   caregiverPhone: string;
   followUpDate: string | null;
+  area: string | null;
   createdAt: string;
   ownerName: string | null;
 }
@@ -35,7 +38,7 @@ export const CaseDetails: React.FC<{
   caseId: string;
   onClose: () => void;
   onChanged: () => void;
-  onStartScreening?: (child: { id: string; name: string }) => void;
+  onStartScreening?: (child: { id: string; name: string; area?: string | null }) => void;
 }> = ({ caseId, onClose, onChanged, onStartScreening }) => {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [history, setHistory] = useState<ScreeningRow[]>([]);
@@ -45,7 +48,7 @@ export const CaseDetails: React.FC<{
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '' });
+  const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '' });
   const [followUp, setFollowUp] = useState('');
 
   const load = useCallback(async () => {
@@ -59,7 +62,7 @@ export const CaseDetails: React.FC<{
       setHistory(data.screenings ?? []);
       setCanDelete(data.canDelete === true);
       setFollowUp(data.child.followUpDate ?? '');
-      setForm({ fullName: data.child.fullName, age: String(data.child.age), gender: data.child.gender, caregiverPhone: data.child.caregiverPhone });
+      setForm({ fullName: data.child.fullName, age: String(data.child.age), gender: data.child.gender, caregiverPhone: data.child.caregiverPhone, area: data.child.area ?? '' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load the case');
     } finally {
@@ -97,7 +100,7 @@ export const CaseDetails: React.FC<{
   };
 
   const saveDetails = async () => {
-    const ok = await patch({ fullName: form.fullName, age: Number(form.age), gender: form.gender, caregiverPhone: form.caregiverPhone }, 'Details updated.');
+    const ok = await patch({ fullName: form.fullName, age: Number(form.age), gender: form.gender, caregiverPhone: form.caregiverPhone, ...(form.area ? { area: form.area } : {}) }, 'Details updated.');
     if (ok) setEditing(false);
   };
 
@@ -163,6 +166,10 @@ export const CaseDetails: React.FC<{
                   <Phone className="w-4 h-4" />
                   <span>Call caregiver: {detail.caregiverPhone}</span>
                 </a>
+                <p className="flex items-center space-x-1.5 text-sm text-slate-600">
+                  <MapPin className="w-4 h-4" />
+                  <span>{areaLabel(detail.area) ?? 'Location not set (tap Edit details to add it)'}</span>
+                </p>
                 {detail.ownerName && <p className="text-xs text-slate-500">Registered by {detail.ownerName}</p>}
                 <button onClick={() => { setEditing(true); setNotice(''); }} className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-600 hover:text-slate-900">
                   <Pencil className="w-3.5 h-3.5" />
@@ -191,6 +198,15 @@ export const CaseDetails: React.FC<{
                 <div>
                   <label className="text-xs font-bold text-slate-600">Caregiver phone</label>
                   <input type="tel" value={form.caregiverPhone} onChange={(e) => setForm({ ...form, caregiverPhone: e.target.value })} className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600">Where does the child live?</label>
+                  <select value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} className={inputCls}>
+                    <option value="">{detail.area ? 'Keep current location' : 'Choose a location...'}</option>
+                    {AREAS.map((a) => (
+                      <option key={a.id} value={a.id}>{a.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={saveDetails} disabled={busy} className="flex-1 bg-blue-900 hover:bg-blue-800 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl">
@@ -228,7 +244,7 @@ export const CaseDetails: React.FC<{
 
             {onStartScreening && (
               <button
-                onClick={() => onStartScreening({ id: detail.id, name: detail.fullName })}
+                onClick={() => onStartScreening({ id: detail.id, name: detail.fullName, area: detail.area })}
                 className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl flex items-center justify-center space-x-2"
               >
                 <ClipboardCheck className="w-5 h-5" />
@@ -256,6 +272,13 @@ export const CaseDetails: React.FC<{
                 </ul>
               )}
             </div>
+
+            {latest?.riskLevel === 'HIGH_RISK' && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-black text-slate-900">Referral hospital</h3>
+                <ReferralCard areaId={detail.area} />
+              </div>
+            )}
 
             {canDelete && (
               <button onClick={remove} disabled={busy} className="w-full text-red-700 hover:bg-red-50 border border-red-200 font-bold py-2.5 rounded-xl flex items-center justify-center space-x-2 text-sm">

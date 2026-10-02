@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, PhoneCall, ArrowLeft, HeartPulse, Building2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ArrowLeft, HeartPulse } from 'lucide-react';
+import { ReferralCard } from './ReferralCard';
 import { TwiAudioPlayer } from './TwiAudioPlayer';
 import { SCREENING_QUESTIONS, scoreAnswers } from '@/lib/risk';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'unsaved';
 
-export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string | null; onComplete: () => void }> = ({ childName, childId = null, onComplete }) => {
+export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string | null; childArea?: string | null; onComplete: () => void }> = ({ childName, childId = null, childArea = null, onComplete }) => {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,39 +105,7 @@ export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string 
           </p>
         </div>
 
-        <div className="bg-white border-2 border-red-200 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex items-start space-x-3">
-            <Building2 className="w-8 h-8 text-blue-900 flex-shrink-0 mt-1" />
-            <div>
-              <span className="text-[10px] font-bold bg-blue-100 text-blue-900 px-2 py-0.5 rounded-full uppercase">
-                Nearest Specialized Facility
-              </span>
-              <h3 className="text-lg font-bold text-slate-900 leading-snug mt-1">
-                Korle-Bu Teaching Hospital (SCD Clinic)
-              </h3>
-              <p className="text-xs text-slate-500">Guggisberg Ave, Korle Gonno, Accra</p>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1">
-            <p className="text-xs font-semibold text-slate-700">Capabilities:</p>
-            <div className="flex flex-wrap gap-1">
-              {['HPLC', 'Isoelectric Focusing', 'Pediatric ICU', 'Blood Transfusion'].map((cap) => (
-                <span key={cap} className="text-[10px] bg-slate-200 text-slate-800 px-2 py-0.5 rounded">
-                  {cap}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <a
-            href="tel:+233302665401"
-            className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-xl font-bold flex items-center justify-center space-x-3 shadow-lg shadow-red-600/30 active:scale-95 transition"
-          >
-            <PhoneCall className="w-5 h-5" />
-            <span>Call Referral Center Now (+233 302 665401)</span>
-          </a>
-        </div>
+        <ReferralCard areaId={childArea} />
 
         {saveBanner}
 

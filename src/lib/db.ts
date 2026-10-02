@@ -62,6 +62,7 @@ const SCHEMA = [
 const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ['children', 'created_by', 'created_by TEXT'],
   ['screenings', 'recorded_by', 'recorded_by TEXT'],
+  ['children', 'area', 'area TEXT'],
 ];
 
 let ready: Promise<void> | null = null;

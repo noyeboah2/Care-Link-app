@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { canSeeAll, requireUser, type SessionUser } from '@/lib/auth';
 import { normalizePhone, validDate } from '@/lib/cases';
+import { AREA_IDS } from '@/lib/hospitals';
 import type { Db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -9,13 +10,13 @@ const fail = (error: string, status: number) => NextResponse.json({ success: fal
 
 type ChildRow = {
   id: string; full_name: string; age: number; gender: string; caregiver_phone: string;
-  follow_up_date: string | null; created_at: string; created_by: string | null; owner_name: string | null;
+  follow_up_date: string | null; area: string | null; created_at: string; created_by: string | null; owner_name: string | null;
 };
 
 async function findChild(db: Db, user: SessionUser, id: string) {
   const child = await db
     .prepare(
-      `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date, c.created_at, c.created_by,
+      `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date, c.area, c.created_at, c.created_by,
          u.name AS owner_name
        FROM children c LEFT JOIN users u ON u.id = c.created_by WHERE c.id = ?`,
     )
@@ -54,6 +55,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         gender: child.gender,
         caregiverPhone: child.caregiver_phone,
         followUpDate: child.follow_up_date,
+        area: child.area,
         createdAt: child.created_at,
         ownerName: child.owner_name,
       },
@@ -98,6 +100,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const phone = normalizePhone(body.caregiverPhone);
       if (!phone) return fail('Use a Ghana phone number, e.g. 0244123456', 400);
       sets.push('caregiver_phone = ?'); values.push(phone);
+    }
+    if ('area' in body) {
+      if (typeof body.area !== 'string' || !AREA_IDS.includes(body.area)) return fail('Choose where the child lives', 400);
+      sets.push('area = ?'); values.push(body.area);
     }
     if ('followUpDate' in body) {
       if (body.followUpDate === null || body.followUpDate === '') {

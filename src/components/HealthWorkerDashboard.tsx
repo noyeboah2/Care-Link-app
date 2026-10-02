@@ -4,6 +4,7 @@ import {
   Clock, ChevronRight, Phone, Shield, X, Loader2
 } from 'lucide-react';
 import { CaseDetails } from '@/components/CaseDetails';
+import { AREAS } from '@/lib/hospitals';
 
 interface AlertItem {
   id: string;
@@ -19,6 +20,7 @@ interface ChildSummary {
   gender: string;
   caregiverPhone: string;
   followUpDate: string | null;
+  area: string | null;
   lastRisk: 'HIGH_RISK' | 'LOW_RISK' | 'PENDING';
   followUpStatus: 'PENDING' | 'OVERDUE' | 'COMPLETED';
 }
@@ -32,7 +34,7 @@ interface Stats {
 
 const EMPTY_STATS: Stats = { totalActive: 0, followUpsToday: 0, pendingScreenings: 0, crisisAlerts: 0 };
 
-export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: string; name: string }) => void }> = ({ onStartScreening }) => {
+export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: string; name: string; area?: string | null }) => void }> = ({ onStartScreening }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'assigned' | 'upcoming' | 'overdue'>('assigned');
@@ -43,7 +45,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '' });
+  const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
@@ -82,7 +84,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
   }, [loadCases]);
 
   const openModal = () => {
-    setForm({ fullName: '', age: '', gender: 'Male', caregiverPhone: '' });
+    setForm({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '' });
     setErrors({});
     setSaveError('');
     setShowModal(true);
@@ -93,6 +95,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
     if (form.fullName.trim().length < 2) e.fullName = "Enter the child's full name";
     const age = Number(form.age);
     if (form.age === '' || !Number.isInteger(age) || age < 0 || age > 18) e.age = 'Enter an age from 0 to 18';
+    if (!form.area) e.area = 'Choose where the child lives';
     const phone = form.caregiverPhone.replace(/[\s-]/g, '');
     if (!/^(\+233|0)\d{9}$/.test(phone)) e.caregiverPhone = 'Use a Ghana number, e.g. 0244123456';
     setErrors(e);
@@ -112,6 +115,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
           age: Number(form.age),
           gender: form.gender,
           caregiverPhone: form.caregiverPhone,
+          area: form.area,
         }),
       });
       if (res.status === 401) { window.location.reload(); return; }
@@ -119,7 +123,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
       if (!res.ok || !data.success || !data.child) throw new Error(data.error || 'Could not save the case');
       setShowModal(false);
       if (startScreeningNow) {
-        onStartScreening({ id: data.child.id, name: data.child.fullName });
+        onStartScreening({ id: data.child.id, name: data.child.fullName, area: data.child.area });
       } else {
         await loadCases();
       }
@@ -335,7 +339,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
               </div>
 
               <button
-                onClick={() => onStartScreening({ id: child.id, name: child.fullName })}
+                onClick={() => onStartScreening({ id: child.id, name: child.fullName, area: child.area })}
                 className="ml-3 bg-blue-900 hover:bg-blue-800 text-white p-3 rounded-xl shadow-md active:scale-95 transition"
                 aria-label="Start screening" title="Start screening"
               >
@@ -410,6 +414,22 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
                 placeholder="0244123456"
               />
               {errors.caregiverPhone && <p className="text-xs text-red-600 mt-1">{errors.caregiverPhone}</p>}
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-600">Where does the child live?</label>
+              <select
+                value={form.area}
+                onChange={(e) => setForm({ ...form, area: e.target.value })}
+                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-900 focus:outline-none"
+              >
+                <option value="">Choose a location...</option>
+                {AREAS.map((a) => (
+                  <option key={a.id} value={a.id}>{a.label}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-500 mt-1">Used to recommend the right referral hospital.</p>
+              {errors.area && <p className="text-xs text-red-600 mt-1">{errors.area}</p>}
             </div>
 
             {saveError && (

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { canSeeAll, requireUser } from '@/lib/auth';
+import { AREA_IDS } from '@/lib/hospitals';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,7 @@ type Row = {
   gender: string;
   caregiver_phone: string;
   follow_up_date: string | null;
+  area: string | null;
   last_risk: 'HIGH_RISK' | 'LOW_RISK' | null;
 };
 
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
     const onlyMine = !canSeeAll(user.role);
     const { results } = await db
       .prepare(
-        `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date,
+        `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date, c.area,
            (SELECT s.risk_level FROM screenings s WHERE s.child_id = c.id
             ORDER BY s.created_at DESC, s.rowid DESC LIMIT 1) AS last_risk
          FROM children c
@@ -39,6 +41,7 @@ export async function GET(request: Request) {
       gender: r.gender,
       caregiverPhone: r.caregiver_phone,
       followUpDate: r.follow_up_date,
+      area: r.area,
       lastRisk: r.last_risk ?? 'PENDING',
       followUpStatus:
         r.follow_up_date && r.follow_up_date < today ? 'OVERDUE' : 'PENDING',
@@ -68,6 +71,7 @@ export async function POST(request: Request) {
     const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : '';
     const age = typeof body.age === 'number' ? body.age : Number(body.age);
     const gender = body.gender;
+    const area = typeof body.area === 'string' ? body.area : '';
     const rawPhone = typeof body.caregiverPhone === 'string' ? body.caregiverPhone.replace(/[\s-]/g, '') : '';
 
     if (fullName.length < 2 || fullName.length > 100) {
@@ -79,6 +83,9 @@ export async function POST(request: Request) {
     if (gender !== 'Male' && gender !== 'Female') {
       return NextResponse.json({ success: false, error: 'Choose a gender' }, { status: 400 });
     }
+    if (!AREA_IDS.includes(area)) {
+      return NextResponse.json({ success: false, error: 'Choose where the child lives' }, { status: 400 });
+    }
     if (!/^(\+233|0)\d{9}$/.test(rawPhone)) {
       return NextResponse.json({ success: false, error: 'Use a Ghana phone number, e.g. 0244123456' }, { status: 400 });
     }
@@ -86,13 +93,13 @@ export async function POST(request: Request) {
 
     const id = crypto.randomUUID();
     await db
-      .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone, created_by) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(id, fullName, age, gender, phone, user.id)
+      .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone, area, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(id, fullName, age, gender, phone, area, user.id)
       .run();
 
     return NextResponse.json({
       success: true,
-      child: { id, fullName, age, gender, caregiverPhone: phone, followUpDate: null, lastRisk: 'PENDING', followUpStatus: 'PENDING' },
+      child: { id, fullName, age, gender, caregiverPhone: phone, followUpDate: null, area, lastRisk: 'PENDING', followUpStatus: 'PENDING' },
     });
   } catch (err) {
     console.error('POST /api/children failed', err);

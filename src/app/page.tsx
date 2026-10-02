@@ -7,6 +7,7 @@ import { SupervisorDashboard } from '@/components/SupervisorDashboard';
 import { ScdScreeningWizard } from '@/components/ScdScreeningWizard';
 import { ChangePasswordScreen, LoginScreen, SetupScreen } from '@/components/AuthScreens';
 import { UsersPanel } from '@/components/UsersPanel';
+import { HospitalsDirectory } from '@/components/HospitalsDirectory';
 
 type Role = 'ADMIN' | 'SUPERVISOR' | 'WORKER';
 interface User {
@@ -23,13 +24,13 @@ type AuthState =
   | { status: 'signedOut' }
   | { status: 'signedIn'; user: User };
 
-type Tab = 'worker' | 'supervisor' | 'screening' | 'users';
+type Tab = 'worker' | 'supervisor' | 'screening' | 'hospitals' | 'users';
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', SUPERVISOR: 'Supervisor', WORKER: 'Health worker' };
 
 export default function Home() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const [activeTab, setActiveTab] = useState<Tab>('worker');
-  const [screeningChild, setScreeningChild] = useState<{ id: string | null; name: string }>({ id: null, name: 'New Child' });
+  const [screeningChild, setScreeningChild] = useState<{ id: string | null; name: string; area?: string | null }>({ id: null, name: 'New Child', area: null });
 
   const refreshAuth = useCallback(async () => {
     try {
@@ -63,7 +64,7 @@ export default function Home() {
     }
   };
 
-  const startScreening = (child: { id: string; name: string }) => {
+  const startScreening = (child: { id: string; name: string; area?: string | null }) => {
     setScreeningChild(child);
     setActiveTab('screening');
   };
@@ -97,6 +98,7 @@ export default function Home() {
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'worker', label: 'Worker Dashboard' },
     { id: 'screening', label: 'Screening Wizard' },
+    { id: 'hospitals', label: 'Hospitals' },
     ...(canSeeAll ? [{ id: 'supervisor' as Tab, label: 'Supervisor Portal' }] : []),
     ...(user.role === 'ADMIN' ? [{ id: 'users' as Tab, label: 'Team' }] : []),
   ];
@@ -144,10 +146,12 @@ export default function Home() {
               key={screeningChild.id ?? 'none'}
               childName={screeningChild.name}
               childId={screeningChild.id}
+              childArea={screeningChild.area ?? null}
               onComplete={() => setActiveTab('worker')}
             />
           </div>
         )}
+        {activeTab === 'hospitals' && <HospitalsDirectory />}
         {activeTab === 'supervisor' && canSeeAll && <SupervisorDashboard />}
         {activeTab === 'users' && user.role === 'ADMIN' && <UsersPanel currentUserId={user.id} />}
       </div>
