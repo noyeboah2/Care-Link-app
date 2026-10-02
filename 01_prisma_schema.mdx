@@ -1,0 +1,137 @@
+---
+title: Prisma Database Schema
+filename: prisma/schema.prisma
+---
+
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  HEALTH_WORKER
+  SUPERVISOR
+  ADMIN
+}
+
+enum RiskLevel {
+  HIGH_RISK
+  LOW_RISK
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+}
+
+enum CareInstructionStatus {
+  SENT
+  READ
+  AUDIO_PLAYED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  CRITICAL
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  passwordHash String
+  name         String
+  role         Role        @default(HEALTH_WORKER)
+  region       String
+  isOnline     Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  assignedChildren Child[]    @relation("WorkerChildren")
+  screenings       Screening[]
+  followUps        FollowUp[]
+}
+
+model Child {
+  id             String      @id @default(uuid())
+  fullName       String
+  age            Int
+  gender         String
+  caregiverPhone String
+  region         String
+  assignedWorker User        @relation("WorkerChildren", fields: [assignedWorkerId], references: [id])
+  assignedWorkerId String
+  createdAt      DateTime    @default(now())
+
+  screenings     Screening[]
+  followUps      FollowUp[]
+  crisisAlerts   CrisisAlert[]
+}
+
+model Hospital {
+  id                   String      @id @default(uuid())
+  name                 String
+  region               String
+  city                 String
+  diagnosticCapabilities String[]
+  hasSCDClinic         Boolean     @default(true)
+  contactPhone         String
+  address              String
+
+  referrals            Screening[]
+}
+
+model Screening {
+  id                 String     @id @default(uuid())
+  child              Child      @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId            String
+  worker             User       @relation(fields: [workerId], references: [id])
+  workerId           String
+  answers            Json
+  riskLevel          RiskLevel
+  referralHospital   Hospital?  @relation(fields: [referralHospitalId], references: [id])
+  referralHospitalId String?
+  completedAt        DateTime   @default(now())
+
+  careInstructions   CareInstruction[]
+}
+
+model CareInstruction {
+  id          String                @id @default(uuid())
+  screening   Screening             @relation(fields: [screeningId], references: [id], onDelete: Cascade)
+  screeningId String
+  textEnglish String
+  textTwi     String
+  audioUrl    String
+  status      CareInstructionStatus @default(SENT)
+  createdAt   DateTime              @default(now())
+}
+
+model FollowUp {
+  id            String         @id @default(uuid())
+  child         Child          @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId       String
+  worker        User           @relation(fields: [workerId], references: [id])
+  workerId      String
+  scheduledDate DateTime
+  status        FollowUpStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime       @default(now())
+}
+
+model CrisisAlert {
+  id           String   @id @default(uuid())
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId      String
+  severity     Severity @default(CRITICAL)
+  message      String
+  sentAt       DateTime @default(now())
+  acknowledged Boolean  @default(false)
+}
+```

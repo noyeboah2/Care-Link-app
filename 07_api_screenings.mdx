@@ -1,0 +1,125 @@
+---
+title: API Endpoint - Screening Engine
+filename: pages/api/screenings.ts
+---
+
+```typescript
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { PrismaClient, RiskLevel } from '@prisma/client';
+import { z } from 'zod';
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+
+const WEIGHTS = {
+  jaundice: 3,
+  severePain: 4,
+  dactylitis: 4,
+  fatigue: 2,
+  fever: 3,
+} as const;
+
+const booleanish = z.union([z.boolean(), z.string(), z.number()]).transform((v) => {
+  if (typeof v === 'string') return v === 'true' || v === '1';
+  return Boolean(v);
+});
+
+const ScreeningInput = z.object({
+  childId: z.string().min(1, 'childId is required'),
+  workerId: z.string().min(1, 'workerId is required'),
+  answers: z
+    .object({
+      jaundice: booleanish.optional(),
+      severePain: booleanish.optional(),
+      dactylitis: booleanish.optional(),
+      fatigue: booleanish.optional(),
+      fever: booleanish.optional(),
+    })
+    .strict(),
+});
+
+async function createScreening(input: z.infer<typeof ScreeningInput>) {
+  const { childId, workerId, answers } = input;
+
+  const totalWeight = Object.entries(WEIGHTS).reduce(
+    (sum, [key, weight]) => (answers[key as keyof typeof answers] ? sum + weight : sum),
+    0,
+  );
+
+  const riskLevel: RiskLevel = totalWeight >= 5 ? 'HIGH_RISK' : 'LOW_RISK';
+
+  let referralHospitalId = null;
+  if (riskLevel === 'HIGH_RISK') {
+    const hospital = await prisma.hospital.findFirst({
+      where: { hasSCDClinic: true },
+    });
+    if (!hospital) {
+      const error = new Error('No SCD referral hospital is configured.');
+      error.name = 'NoReferralHospitalError';
+      throw error;
+    }
+    referralHospitalId = hospital.id;
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.screening.create({
+      data: {
+        childId,
+        workerId,
+        answers,
+        riskLevel,
+        referralHospitalId,
+      },
+      include: {
+        referralHospital: true,
+      },
+    });
+
+    if (riskLevel === 'LOW_RISK') {
+      await tx.careInstruction.create({
+        data: {
+          screeningId: created.id,
+          textEnglish: 'Ensure daily high fluid intake and routine folic acid adherence.',
+          textTwi: 'Ma abofra no nsu pii da biara na hwɛ se ogye aduro a ɛbɔ ne ho ban bere biara.',
+          audioUrl: '/audio/twi_low_risk_guidance.mp3',
+        },
+      });
+    }
+
+    return created;
+  });
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method === 'POST') {
+    try {
+      const parsed = ScreeningInput.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Invalid request body.',
+          details: parsed.error.flatten(),
+        });
+      }
+      const screening = await createScreening(parsed.data);
+
+      return res.status(201).json({ success: true, screening });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'NoReferralHospitalError') {
+        return res.status(409).json({
+          error: 'No SCD referral hospital is configured; cannot record a high-risk screening.',
+        });
+      }
+      console.error('screenings: failed to create screening', error);
+      return res.status(500).json({ error: 'Internal server error.' });
+    }
+  } else {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+}
+```
