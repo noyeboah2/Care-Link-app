@@ -3,6 +3,14 @@ import {
   Wifi, WifiOff, Bell, UserPlus, Search,
   Clock, ChevronRight, Phone, Shield, X, Loader2
 } from 'lucide-react';
+import { CaseDetails } from '@/components/CaseDetails';
+
+interface AlertItem {
+  id: string;
+  name: string;
+  kind: 'HIGH_RISK' | 'OVERDUE' | 'DUE_TODAY';
+  detail: string;
+}
 
 interface ChildSummary {
   id: string;
@@ -37,9 +45,24 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
   const [saveError, setSaveError] = useState('');
   const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [openCaseId, setOpenCaseId] = useState<string | null>(null);
+
+  const loadAlerts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/alerts', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = (await res.json()) as { success: boolean; items?: AlertItem[] };
+      if (data.success) setAlerts(data.items ?? []);
+    } catch {
+      /* alerts are optional; ignore network errors */
+    }
+  }, []);
 
   const loadCases = useCallback(async () => {
     setLoadError('');
+    void loadAlerts();
     try {
       const res = await fetch('/api/children', { cache: 'no-store' });
       if (res.status === 401) { window.location.reload(); return; }
@@ -52,7 +75,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadAlerts]);
 
   useEffect(() => {
     void loadCases();
@@ -120,8 +143,8 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 max-w-md mx-auto border-x border-slate-200 shadow-2xl flex flex-col">
-      <header className="bg-blue-900 text-white p-4 sticky top-0 z-30 flex items-center justify-between shadow-md">
+    <div className="bg-slate-50 pb-24 max-w-md mx-auto border-x border-slate-200 shadow-2xl flex flex-col min-h-[80vh]">
+      <header className="bg-blue-900 text-white p-4 relative z-30 flex items-center justify-between shadow-md">
         <div className="flex items-center space-x-2">
           <Shield className="w-6 h-6 text-emerald-400" />
           <h1 className="font-black tracking-tight text-lg">SCD Care Ghana</h1>
@@ -140,11 +163,54 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
             <span>{isOnline ? 'Online' : 'Offline Cache'}</span>
           </button>
 
-          <button className="relative p-1 text-slate-300 hover:text-white">
+          <button
+            onClick={() => setShowAlerts((v) => !v)}
+            className="relative p-1 text-slate-300 hover:text-white"
+            aria-label={`Notifications (${alerts.length})`}
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full animate-ping" />
+            {alerts.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {alerts.length > 9 ? '9+' : alerts.length}
+              </span>
+            )}
           </button>
         </div>
+
+        {showAlerts && (
+          <div className="absolute right-3 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-40">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+              <p className="text-sm font-black">Alerts</p>
+              <button onClick={() => setShowAlerts(false)} aria-label="Close alerts" className="text-slate-400 hover:text-slate-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {alerts.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-slate-500 text-center">No alerts. Everything is up to date.</p>
+            ) : (
+              <ul className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                {alerts.map((a, i) => (
+                  <li key={`${a.id}-${a.kind}-${i}`}>
+                    <button
+                      onClick={() => { setShowAlerts(false); setOpenCaseId(a.id); }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-start space-x-3"
+                    >
+                      <span
+                        className={`mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                          a.kind === 'HIGH_RISK' ? 'bg-red-500' : a.kind === 'OVERDUE' ? 'bg-amber-500' : 'bg-blue-500'
+                        }`}
+                      />
+                      <span>
+                        <span className="block text-sm font-bold">{a.name}</span>
+                        <span className="block text-xs text-slate-500">{a.detail}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </header>
 
       <section className="p-4 grid grid-cols-2 gap-3 bg-blue-950 text-white">
@@ -227,7 +293,13 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
               key={child.id}
               className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between hover:border-slate-300 transition"
             >
-              <div className="space-y-1">
+              <div
+                className="space-y-1 flex-1 cursor-pointer"
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpenCaseId(child.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter') setOpenCaseId(child.id); }}
+              >
                 <div className="flex items-center space-x-2">
                   <h4 className="font-bold text-slate-900">{child.fullName}</h4>
                   <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
@@ -250,6 +322,9 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
                   >
                     {child.lastRisk === 'PENDING' ? 'NOT SCREENED' : child.lastRisk.replace('_', ' ')}
                   </span>
+                  {child.followUpDate && child.followUpStatus !== 'OVERDUE' && (
+                    <span className="text-[10px] font-semibold text-slate-500">Follow-up {child.followUpDate}</span>
+                  )}
                   {child.followUpStatus === 'OVERDUE' && (
                     <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full flex items-center space-x-1">
                       <Clock className="w-3 h-3" />
@@ -261,8 +336,8 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
 
               <button
                 onClick={() => onStartScreening({ id: child.id, name: child.fullName })}
-                className="bg-blue-900 hover:bg-blue-800 text-white p-3 rounded-xl shadow-md active:scale-95 transition"
-                aria-label="Start Screening"
+                className="ml-3 bg-blue-900 hover:bg-blue-800 text-white p-3 rounded-xl shadow-md active:scale-95 transition"
+                aria-label="Start screening" title="Start screening"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -359,6 +434,14 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
             </div>
           </div>
         </div>
+      )}
+      {openCaseId && (
+        <CaseDetails
+          caseId={openCaseId}
+          onClose={() => setOpenCaseId(null)}
+          onChanged={() => void loadCases()}
+          onStartScreening={(c) => { setOpenCaseId(null); onStartScreening(c); }}
+        />
       )}
     </div>
   );

@@ -22,6 +22,7 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState({ name: '', email: '', role: 'WORKER' as Role, password: '' });
   const [busy, setBusy] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
 
   const load = useCallback(async () => {
     setError('');
@@ -77,6 +78,12 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
     const verb = u.active ? 'deactivate' : 'activate';
     if (!window.confirm(`${u.active ? 'Deactivate' : 'Reactivate'} ${u.name}?`)) return;
     await call(`/api/users/${u.id}`, 'PATCH', { action: verb }, `${u.name} ${u.active ? 'deactivated' : 'reactivated'}.`);
+  };
+
+  const clearCases = async () => {
+    if (!window.confirm('This permanently deletes ALL children and screenings. Users are kept. Continue?')) return;
+    const ok = await call('/api/admin/clear-cases', 'POST', { confirm: confirmText }, 'All cases and screenings were deleted.');
+    if (ok) setConfirmText('');
   };
 
   const changeRole = async (u: UserRow, role: Role) => {
@@ -162,6 +169,28 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="bg-white rounded-xl shadow-md p-5 space-y-3 border border-red-200">
+        <h2 className="text-lg font-black text-red-700">Clear test data</h2>
+        <p className="text-sm text-slate-600">
+          Deletes every child and screening so you can start fresh before real use. Team accounts are not affected. This cannot be undone.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder="Type DELETE ALL CASES"
+            className={inputCls + ' sm:flex-1'}
+          />
+          <button
+            onClick={clearCases}
+            disabled={busy || confirmText !== 'DELETE ALL CASES'}
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white font-bold px-5 py-2.5 rounded-xl"
+          >
+            Delete all cases
+          </button>
+        </div>
       </div>
     </div>
   );
