@@ -73,6 +73,7 @@ export async function POST(request: Request) {
     const age = typeof body.age === 'number' ? body.age : Number(body.age);
     const gender = body.gender;
     const area = typeof body.area === 'string' ? body.area : '';
+    const smsConsent = body.smsConsent === true ? 1 : 0; // set only when a worker ticked the consent box
     const rawPhone = typeof body.caregiverPhone === 'string' ? body.caregiverPhone.replace(/[\s-]/g, '') : '';
 
     if (fullName.length < 2 || fullName.length > 100) {
@@ -105,8 +106,8 @@ export async function POST(request: Request) {
       });
     }
     await db
-      .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone, area, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(id, fullName, age, gender, phone, area, user.id)
+      .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone, area, created_by, sms_consent, sms_consent_at, sms_consent_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN datetime(\'now\') END, CASE WHEN ? = 1 THEN ? END)')
+      .bind(id, fullName, age, gender, phone, area, user.id, smsConsent, smsConsent, smsConsent, user.id)
       .run();
 
     return NextResponse.json({

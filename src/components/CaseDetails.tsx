@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Phone, Loader2, CalendarClock, Trash2, Pencil, ClipboardCheck, MapPin, CloudOff } from 'lucide-react';
+import { X, Phone, Loader2, CalendarClock, Trash2, Pencil, ClipboardCheck, MapPin, CloudOff, MessageSquare } from 'lucide-react';
 import type { CaseSummary } from '@/lib/offline';
 import { AREAS, areaLabel } from '@/lib/hospitals';
 import { ReferralCard } from '@/components/ReferralCard';
@@ -12,6 +12,8 @@ interface Detail {
   caregiverPhone: string;
   followUpDate: string | null;
   area: string | null;
+  smsConsent?: boolean;
+  smsConsentAt?: string | null;
   createdAt: string;
   ownerName: string | null;
 }
@@ -277,6 +279,36 @@ export const CaseDetails: React.FC<{
                 </button>
               </div>
             </div>
+            )}
+
+            {!offlineMode && (
+              <div className="border border-slate-200 rounded-xl p-3 space-y-2">
+                <div className="flex items-center space-x-2 text-sm font-bold text-slate-800">
+                  <MessageSquare className="w-4 h-4" />
+                  <span>SMS reminders</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${detail.smsConsent ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {detail.smsConsent ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  {detail.smsConsent
+                    ? `Caregiver agreed${detail.smsConsentAt ? ' on ' + fmtDate(detail.smsConsentAt.slice(0, 10)) : ''}. Reminders are sent the day before, on the day, and if the visit is missed. They need a follow-up date.`
+                    : 'Off. The caregiver has not agreed to SMS reminders.'}
+                </p>
+                <button
+                  onClick={() => {
+                    const turnOn = !detail.smsConsent;
+                    const ok = window.confirm(turnOn
+                      ? 'Confirm that the caregiver has agreed to receive SMS reminders about this child’s visits.'
+                      : 'Stop SMS reminders for this child?');
+                    if (ok) void patch({ smsConsent: turnOn }, turnOn ? 'SMS reminders turned on.' : 'SMS reminders turned off.');
+                  }}
+                  disabled={busy}
+                  className="text-xs font-bold border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {detail.smsConsent ? 'Turn off reminders' : 'Caregiver agrees: turn on'}
+                </button>
+              </div>
             )}
 
             {onStartScreening && (

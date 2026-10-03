@@ -37,6 +37,5 @@
   ],
   "exclude": [
     "node_modules",
-    "prisma/seed.ts"
-  ]
+    "prisma/seed.ts", "custom-worker.ts"]
 }

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
     const { db } = auth;
     const before = await db.prepare('SELECT COUNT(*) AS n FROM children').first<{ n: number }>();
-    await db.batch([db.prepare('DELETE FROM screenings'), db.prepare('DELETE FROM children')]);
+    await db.batch([db.prepare('DELETE FROM screenings'), db.prepare('DELETE FROM sms_log'), db.prepare('DELETE FROM children')]);
     return NextResponse.json({ success: true, deleted: before?.n ?? 0 });
   } catch (err) {
     console.error('POST /api/admin/clear-cases failed', err);

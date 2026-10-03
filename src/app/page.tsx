@@ -8,6 +8,7 @@ import { ScdScreeningWizard } from '@/components/ScdScreeningWizard';
 import { ChangePasswordScreen, LoginScreen, SetupScreen } from '@/components/AuthScreens';
 import { UsersPanel } from '@/components/UsersPanel';
 import { HospitalsDirectory } from '@/components/HospitalsDirectory';
+import { SmsPanel } from '@/components/SmsPanel';
 import { clearCachedCases, getQueue } from '@/lib/offline';
 import { useOnline } from '@/lib/useOffline';
 
@@ -26,7 +27,7 @@ type AuthState =
   | { status: 'signedOut' }
   | { status: 'signedIn'; user: User };
 
-type Tab = 'worker' | 'supervisor' | 'screening' | 'hospitals' | 'users';
+type Tab = 'worker' | 'supervisor' | 'screening' | 'hospitals' | 'sms' | 'users';
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', SUPERVISOR: 'Supervisor', WORKER: 'Health worker' };
 
 // Remembered on the phone so a signed-in worker can still open the app with no signal.
@@ -157,6 +158,7 @@ export default function Home() {
     { id: 'screening', label: 'Screening Wizard' },
     { id: 'hospitals', label: 'Hospitals' },
     ...(canSeeAll ? [{ id: 'supervisor' as Tab, label: 'Supervisor Portal' }] : []),
+    ...(canSeeAll ? [{ id: 'sms' as Tab, label: 'SMS' }] : []),
     ...(user.role === 'ADMIN' ? [{ id: 'users' as Tab, label: 'Team' }] : []),
   ];
 
@@ -214,6 +216,7 @@ export default function Home() {
         )}
         {activeTab === 'hospitals' && <HospitalsDirectory />}
         {activeTab === 'supervisor' && canSeeAll && <SupervisorDashboard />}
+        {activeTab === 'sms' && canSeeAll && <SmsPanel isAdmin={user.role === 'ADMIN'} />}
         {activeTab === 'users' && user.role === 'ADMIN' && <UsersPanel currentUserId={user.id} />}
       </div>
     </main>

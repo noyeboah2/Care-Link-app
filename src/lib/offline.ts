@@ -257,7 +257,7 @@ export class SessionExpiredError extends Error {
   }
 }
 
-export function submitNewChild(userId: string, payload: { fullName: string; age: number; gender: string; caregiverPhone: string; area: string }) {
+export function submitNewChild(userId: string, payload: { fullName: string; age: number; gender: string; caregiverPhone: string; area: string; smsConsent?: boolean }) {
   const id = crypto.randomUUID();
   return postOrQueue<{ child: CaseSummary }>(userId, 'createChild', { id, ...payload }).then((outcome) => ({ outcome, id }));
 }

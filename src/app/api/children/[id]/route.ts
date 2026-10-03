@@ -10,13 +10,13 @@ const fail = (error: string, status: number) => NextResponse.json({ success: fal
 
 type ChildRow = {
   id: string; full_name: string; age: number; gender: string; caregiver_phone: string;
-  follow_up_date: string | null; area: string | null; created_at: string; created_by: string | null; owner_name: string | null;
+  follow_up_date: string | null; area: string | null; sms_consent: number; sms_consent_at: string | null; created_at: string; created_by: string | null; owner_name: string | null;
 };
 
 async function findChild(db: Db, user: SessionUser, id: string) {
   const child = await db
     .prepare(
-      `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date, c.area, c.created_at, c.created_by,
+      `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date, c.area, c.sms_consent, c.sms_consent_at, c.created_at, c.created_by,
          u.name AS owner_name
        FROM children c LEFT JOIN users u ON u.id = c.created_by WHERE c.id = ?`,
     )
@@ -56,6 +56,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         caregiverPhone: child.caregiver_phone,
         followUpDate: child.follow_up_date,
         area: child.area,
+        smsConsent: child.sms_consent === 1,
+        smsConsentAt: child.sms_consent_at,
         createdAt: child.created_at,
         ownerName: child.owner_name,
       },
@@ -105,6 +107,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (typeof body.area !== 'string' || !AREA_IDS.includes(body.area)) return fail('Choose where the child lives', 400);
       sets.push('area = ?'); values.push(body.area);
     }
+    if ('smsConsent' in body) {
+      if (typeof body.smsConsent !== 'boolean') return fail('Invalid consent value', 400);
+      if (body.smsConsent) {
+        sets.push("sms_consent = 1", "sms_consent_at = datetime('now')", 'sms_consent_by = ?');
+        values.push(user.id);
+      } else {
+        sets.push('sms_consent = 0'); // withdrawn: reminders stop; the earlier consent record is kept
+      }
+    }
     if ('followUpDate' in body) {
       if (body.followUpDate === null || body.followUpDate === '') {
         sets.push('follow_up_date = NULL');
@@ -137,6 +148,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     await db.batch([
       db.prepare('DELETE FROM screenings WHERE child_id = ?').bind(id),
+      db.prepare('DELETE FROM sms_log WHERE child_id = ?').bind(id),
       db.prepare('DELETE FROM children WHERE id = ?').bind(id),
     ]);
     return NextResponse.json({ success: true });

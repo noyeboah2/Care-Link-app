@@ -55,7 +55,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '' });
+  const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '', smsConsent: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showAlerts, setShowAlerts] = useState(false);
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
@@ -117,7 +117,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
   }, [notice]);
 
   const openModal = () => {
-    setForm({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '' });
+    setForm({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '', smsConsent: false });
     setErrors({});
     setSaveError('');
     setShowModal(true);
@@ -146,6 +146,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
         gender: form.gender,
         caregiverPhone: form.caregiverPhone,
         area: form.area,
+        smsConsent: form.smsConsent,
       });
       setShowModal(false);
       if (outcome.status === 'queued') setNotice('Saved on this phone. It will upload automatically when you are back online.');
@@ -467,6 +468,19 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
               <p className="text-[11px] text-slate-500 mt-1">Used to recommend the right referral hospital.</p>
               {errors.area && <p className="text-xs text-red-600 mt-1">{errors.area}</p>}
             </div>
+
+            <label className="flex items-start space-x-3 bg-slate-50 border border-slate-200 rounded-xl p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.smsConsent}
+                onChange={(e) => setForm({ ...form, smsConsent: e.target.checked })}
+                className="mt-1 w-4 h-4 accent-blue-900"
+              />
+              <span className="text-xs text-slate-700">
+                <span className="font-bold block">The caregiver agrees to receive SMS reminders</span>
+                Tick only after asking the caregiver. Messages only mention the child’s first name and the visit date. They can stop any time by telling you.
+              </span>
+            </label>
 
             {saveError && (
               <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{saveError}</p>

@@ -1,7 +1,8 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "care-link-app",
-  "main": ".open-next/worker.js",
+  "main": "custom-worker.ts",
+  "keep_vars": true,
   "compatibility_date": "2026-09-29",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -15,6 +16,9 @@
       "database_id": "93d72c4f-53bb-487d-b2e3-79cb84dd8caa"
     }
   ],
+  "triggers": {
+    "crons": ["0 9 * * *"]
+  },
   "observability": {
     "enabled": true
   }

@@ -56,6 +56,24 @@ const SCHEMA = [
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS sms_log (
+    id TEXT PRIMARY KEY,
+    child_id TEXT NOT NULL,
+    to_phone TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    for_date TEXT NOT NULL,
+    message TEXT NOT NULL,
+    status TEXT NOT NULL,
+    provider_id TEXT,
+    provider_status TEXT,
+    cost TEXT,
+    error TEXT,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_unique ON sms_log(child_id, kind, for_date)`,
+  `CREATE INDEX IF NOT EXISTS idx_sms_provider ON sms_log(provider_id)`,
 ];
 
 // Columns added after the first release. Added only if missing.
@@ -63,6 +81,9 @@ const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ['children', 'created_by', 'created_by TEXT'],
   ['screenings', 'recorded_by', 'recorded_by TEXT'],
   ['children', 'area', 'area TEXT'],
+  ['children', 'sms_consent', 'sms_consent INTEGER NOT NULL DEFAULT 0'],
+  ['children', 'sms_consent_at', 'sms_consent_at TEXT'],
+  ['children', 'sms_consent_by', 'sms_consent_by TEXT'],
 ];
 
 let ready: Promise<void> | null = null;
