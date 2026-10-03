@@ -52,13 +52,4 @@ export async function loadCases(db: Db, user: SessionUser): Promise<CaseRow[]> {
   }));
 }
 
-export function normalizePhone(input: unknown): string | null {
-  const raw = typeof input === 'string' ? input.replace(/[\s-]/g, '') : '';
-  if (!/^(\+233|0)\d{9}$/.test(raw)) return null;
-  return raw.startsWith('0') ? '+233' + raw.slice(1) : raw;
-}
-
-export function validDate(input: unknown): input is string {
-  return typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input) && !Number.isNaN(Date.parse(input)) &&
-    new Date(input).toISOString().slice(0, 10) === input;
-}
+export { normalizePhone, validDate } from '@/lib/validation';

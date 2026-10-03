@@ -1,10 +1,20 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
+import { RegisterSW } from '@/components/RegisterSW';
 
 export const metadata: Metadata = {
   title: 'CareLink SCD Ghana',
   description: 'Sickle Cell Disease Screening & Patient Care Management Platform',
+  manifest: '/manifest.webmanifest',
+  icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon.png' },
+  appleWebApp: { capable: true, title: 'CareLink', statusBarStyle: 'default' },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#047857',
 };
 
 export default function RootLayout({
@@ -14,7 +24,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <RegisterSW />
+      </body>
     </html>
   );
 }

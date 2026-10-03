@@ -1,5 +1,6 @@
 import React from 'react';
 import { Building2, PhoneCall, MapPin, Navigation, AlertTriangle } from 'lucide-react';
+import { useOnline } from '@/lib/useOffline';
 import { areaLabel, mapsDirectionsUrl, mapsEmbedUrl, mapsOpenUrl, referralFor, telHref, type Hospital } from '@/lib/hospitals';
 
 function PhoneLines({ hospital, big }: { hospital: Hospital; big?: boolean }) {
@@ -36,6 +37,7 @@ function PhoneLines({ hospital, big }: { hospital: Hospital; big?: boolean }) {
 export const ReferralCard: React.FC<{ areaId: string | null | undefined; childArea?: boolean }> = ({ areaId }) => {
   const { primary, reason, alternatives } = referralFor(areaId);
   const where = areaLabel(areaId);
+  const online = useOnline();
 
   return (
     <div className="bg-white border-2 border-red-200 rounded-2xl p-5 shadow-sm space-y-4">
@@ -52,15 +54,21 @@ export const ReferralCard: React.FC<{ areaId: string | null | undefined; childAr
 
       <PhoneLines hospital={primary} big />
 
-      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-        <iframe
-          title={`Map of ${primary.name}`}
-          src={mapsEmbedUrl(primary)}
-          className="w-full h-48 border-0"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
-      </div>
+      {online ? (
+        <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+          <iframe
+            title={`Map of ${primary.name}`}
+            src={mapsEmbedUrl(primary)}
+            className="w-full h-48 border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </div>
+      ) : (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-xs p-3">
+          The map needs internet. Use the phone number above, or tap Directions once you have signal.
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <a href={mapsOpenUrl(primary)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-1.5 border border-slate-300 rounded-xl py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50">
           <MapPin className="w-4 h-4" />

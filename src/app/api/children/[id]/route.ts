@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { canSeeAll, requireUser, type SessionUser } from '@/lib/auth';
-import { normalizePhone, validDate } from '@/lib/cases';
+import { normalizePhone, validDate } from '@/lib/validation';
 import { AREA_IDS } from '@/lib/hospitals';
 import type { Db } from '@/lib/db';
 

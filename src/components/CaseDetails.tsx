@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { X, Phone, Loader2, CalendarClock, Trash2, Pencil, ClipboardCheck, MapPin } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { X, Phone, Loader2, CalendarClock, Trash2, Pencil, ClipboardCheck, MapPin, CloudOff } from 'lucide-react';
+import type { CaseSummary } from '@/lib/offline';
 import { AREAS, areaLabel } from '@/lib/hospitals';
 import { ReferralCard } from '@/components/ReferralCard';
 
@@ -39,7 +40,14 @@ export const CaseDetails: React.FC<{
   onClose: () => void;
   onChanged: () => void;
   onStartScreening?: (child: { id: string; name: string; area?: string | null }) => void;
-}> = ({ caseId, onClose, onChanged, onStartScreening }) => {
+  summary?: CaseSummary; // what the phone already knows, used when offline
+  localOnly?: boolean; // case exists only on this phone so far
+}> = ({ caseId, onClose, onChanged, onStartScreening, summary, localOnly }) => {
+  const summaryRef = useRef(summary);
+  summaryRef.current = summary;
+  const localOnlyRef = useRef(localOnly);
+  localOnlyRef.current = localOnly;
+  const [offlineMode, setOfflineMode] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [history, setHistory] = useState<ScreeningRow[]>([]);
   const [canDelete, setCanDelete] = useState(false);
@@ -53,17 +61,34 @@ export const CaseDetails: React.FC<{
 
   const load = useCallback(async () => {
     setError('');
+    const useSummary = () => {
+      const sm = summaryRef.current;
+      if (!sm) return false;
+      setDetail({
+        id: sm.id, fullName: sm.fullName, age: sm.age, gender: sm.gender, caregiverPhone: sm.caregiverPhone,
+        followUpDate: sm.followUpDate, area: sm.area, createdAt: '', ownerName: null,
+      });
+      setHistory([]);
+      setCanDelete(false);
+      setOfflineMode(true);
+      setLoading(false);
+      return true;
+    };
+    if (localOnlyRef.current && useSummary()) return;
     try {
       const res = await fetch(`/api/children/${caseId}`, { cache: 'no-store' });
       if (res.status === 401) { window.location.reload(); return; }
       const data = (await res.json()) as { success: boolean; child?: Detail; screenings?: ScreeningRow[]; canDelete?: boolean; error?: string };
       if (!res.ok || !data.success || !data.child) throw new Error(data.error || 'Could not load the case');
+      setOfflineMode(false);
       setDetail(data.child);
       setHistory(data.screenings ?? []);
       setCanDelete(data.canDelete === true);
       setFollowUp(data.child.followUpDate ?? '');
       setForm({ fullName: data.child.fullName, age: String(data.child.age), gender: data.child.gender, caregiverPhone: data.child.caregiverPhone, area: data.child.area ?? '' });
     } catch (err) {
+      // No signal: show what this phone already knows about the child.
+      if (err instanceof TypeError && useSummary()) return;
       setError(err instanceof Error ? err.message : 'Could not load the case');
     } finally {
       setLoading(false);
@@ -143,6 +168,16 @@ export const CaseDetails: React.FC<{
         )}
 
         {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{error}</p>}
+        {offlineMode && (
+          <div className="text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2 flex items-start space-x-2">
+            <CloudOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>
+              {localOnlyRef.current
+                ? 'This case is saved on your phone and has not uploaded yet. You can still screen the child. Editing opens once it uploads.'
+                : 'You are offline. Showing saved information. History, editing and deleting need internet.'}
+            </span>
+          </div>
+        )}
         {notice && <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">{notice}</p>}
 
         {detail && (
@@ -171,10 +206,10 @@ export const CaseDetails: React.FC<{
                   <span>{areaLabel(detail.area) ?? 'Location not set (tap Edit details to add it)'}</span>
                 </p>
                 {detail.ownerName && <p className="text-xs text-slate-500">Registered by {detail.ownerName}</p>}
-                <button onClick={() => { setEditing(true); setNotice(''); }} className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-600 hover:text-slate-900">
+                {!offlineMode && <button onClick={() => { setEditing(true); setNotice(''); }} className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-600 hover:text-slate-900">
                   <Pencil className="w-3.5 h-3.5" />
                   <span>Edit details</span>
-                </button>
+                </button>}
               </div>
             ) : (
               <div className="space-y-3">
@@ -219,6 +254,7 @@ export const CaseDetails: React.FC<{
               </div>
             )}
 
+            {!offlineMode && (
             <div className="border border-slate-200 rounded-xl p-3 space-y-2">
               <div className="flex items-center space-x-2 text-sm font-bold text-slate-800">
                 <CalendarClock className="w-4 h-4" />
@@ -241,6 +277,7 @@ export const CaseDetails: React.FC<{
                 </button>
               </div>
             </div>
+            )}
 
             {onStartScreening && (
               <button
@@ -248,7 +285,7 @@ export const CaseDetails: React.FC<{
                 className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl flex items-center justify-center space-x-2"
               >
                 <ClipboardCheck className="w-5 h-5" />
-                <span>{history.length ? 'Screen again' : 'Start screening'}</span>
+                <span>{(offlineMode ? summaryRef.current?.lastRisk !== 'PENDING' : history.length > 0) ? 'Screen again' : 'Start screening'}</span>
               </button>
             )}
 
@@ -273,7 +310,7 @@ export const CaseDetails: React.FC<{
               )}
             </div>
 
-            {latest?.riskLevel === 'HIGH_RISK' && (
+            {(offlineMode ? summaryRef.current?.lastRisk === 'HIGH_RISK' : latest?.riskLevel === 'HIGH_RISK') && (
               <div className="space-y-2">
                 <h3 className="text-sm font-black text-slate-900">Referral hospital</h3>
                 <ReferralCard areaId={detail.area} />

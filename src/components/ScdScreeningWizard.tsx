@@ -3,10 +3,11 @@ import { AlertTriangle, CheckCircle, ArrowLeft, HeartPulse } from 'lucide-react'
 import { ReferralCard } from './ReferralCard';
 import { TwiAudioPlayer } from './TwiAudioPlayer';
 import { SCREENING_QUESTIONS, scoreAnswers } from '@/lib/risk';
+import { submitScreening, SessionExpiredError } from '@/lib/offline';
 
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'unsaved';
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'queued' | 'error' | 'unsaved';
 
-export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string | null; childArea?: string | null; onComplete: () => void }> = ({ childName, childId = null, childArea = null, onComplete }) => {
+export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; childId?: string | null; childArea?: string | null; onComplete: () => void }> = ({ userId, childName, childId = null, childArea = null, onComplete }) => {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,15 +36,10 @@ export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string 
     }
     setSaveStatus('saving');
     try {
-      const res = await fetch('/api/screenings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ childId, answers: answersToSave }),
-      });
-      if (res.status === 401) { window.location.reload(); return; }
-      const data = (await res.json()) as { success: boolean };
-      setSaveStatus(res.ok && data.success ? 'saved' : 'error');
-    } catch {
+      const outcome = await submitScreening(userId, { childId, answers: answersToSave });
+      setSaveStatus(outcome.status === 'queued' ? 'queued' : 'saved');
+    } catch (err) {
+      if (err instanceof SessionExpiredError) { window.location.reload(); return; }
       setSaveStatus('error');
     }
   };
@@ -65,6 +61,8 @@ export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string 
       className={`text-xs font-semibold text-center rounded-xl px-3 py-2 ${
         saveStatus === 'saved'
           ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+          : saveStatus === 'queued'
+          ? 'bg-sky-50 text-sky-900 border border-sky-200'
           : saveStatus === 'error'
           ? 'bg-red-50 text-red-800 border border-red-200'
           : 'bg-amber-50 text-amber-800 border border-amber-200'
@@ -72,6 +70,7 @@ export const ScdScreeningWizard: React.FC<{ childName: string; childId?: string 
     >
       {saveStatus === 'saving' && 'Saving result...'}
       {saveStatus === 'saved' && 'Result saved to the child’s record.'}
+      {saveStatus === 'queued' && 'Saved on this phone. It will upload automatically when you are back online.'}
       {saveStatus === 'unsaved' && 'Not saved: start the screening from a child’s card on the dashboard.'}
       {saveStatus === 'error' && (
         <span>

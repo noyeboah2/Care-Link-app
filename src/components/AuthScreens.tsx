@@ -21,11 +21,16 @@ function Shell({ title, subtitle, children }: { title: string; subtitle?: string
 }
 
 async function postJson(url: string, body: unknown) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error('No internet connection. Please connect and try again.');
+  }
   const data = (await res.json()) as { success: boolean; error?: string };
   if (!res.ok || !data.success) throw new Error(data.error || 'Something went wrong');
   return data;

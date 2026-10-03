@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { canSeeAll, requireUser } from '@/lib/auth';
 import { AREA_IDS } from '@/lib/hospitals';
+import { isUuid } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,7 +92,18 @@ export async function POST(request: Request) {
     }
     const phone = rawPhone.startsWith('0') ? '+233' + rawPhone.slice(1) : rawPhone;
 
-    const id = crypto.randomUUID();
+    // Phones that were offline send their own id so a retry never creates a duplicate.
+    const id = isUuid(body.id) ? body.id : crypto.randomUUID();
+    const existing = await db.prepare('SELECT created_by FROM children WHERE id = ?').bind(id).first<{ created_by: string | null }>();
+    if (existing) {
+      if (existing.created_by !== user.id) {
+        return NextResponse.json({ success: false, error: 'That case id is already in use' }, { status: 409 });
+      }
+      return NextResponse.json({
+        success: true,
+        child: { id, fullName, age, gender, caregiverPhone: phone, followUpDate: null, area, lastRisk: 'PENDING', followUpStatus: 'PENDING' },
+      });
+    }
     await db
       .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone, area, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(id, fullName, age, gender, phone, area, user.id)

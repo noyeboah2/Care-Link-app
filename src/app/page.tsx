@@ -8,6 +8,8 @@ import { ScdScreeningWizard } from '@/components/ScdScreeningWizard';
 import { ChangePasswordScreen, LoginScreen, SetupScreen } from '@/components/AuthScreens';
 import { UsersPanel } from '@/components/UsersPanel';
 import { HospitalsDirectory } from '@/components/HospitalsDirectory';
+import { clearCachedCases, getQueue } from '@/lib/offline';
+import { useOnline } from '@/lib/useOffline';
 
 type Role = 'ADMIN' | 'SUPERVISOR' | 'WORKER';
 interface User {
@@ -27,13 +29,42 @@ type AuthState =
 type Tab = 'worker' | 'supervisor' | 'screening' | 'hospitals' | 'users';
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', SUPERVISOR: 'Supervisor', WORKER: 'Health worker' };
 
+// Remembered on the phone so a signed-in worker can still open the app with no signal.
+const CACHED_USER = 'cl_user';
+const PENDING_LOGOUT = 'cl_pending_logout';
+
+function readCachedUser(): User | null {
+  try {
+    const raw = localStorage.getItem(CACHED_USER);
+    if (!raw) return null;
+    const u = JSON.parse(raw) as User;
+    return u && typeof u.id === 'string' && !u.mustChange ? u : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Home() {
+  const online = useOnline();
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const [activeTab, setActiveTab] = useState<Tab>('worker');
   const [screeningChild, setScreeningChild] = useState<{ id: string | null; name: string; area?: string | null }>({ id: null, name: 'New Child', area: null });
 
   const refreshAuth = useCallback(async () => {
     try {
+      // If a sign-out could not reach the server (offline), finish it first.
+      if (localStorage.getItem(PENDING_LOGOUT)) {
+        try {
+          const r = await fetch('/api/auth/logout', { method: 'POST' });
+          if (r.ok) localStorage.removeItem(PENDING_LOGOUT);
+        } catch {
+          /* still offline */
+        }
+        if (localStorage.getItem(PENDING_LOGOUT)) {
+          setAuth({ status: 'signedOut' });
+          return;
+        }
+      }
       const res = await fetch('/api/auth/me', { cache: 'no-store' });
       const data = (await res.json()) as {
         success: boolean;
@@ -42,11 +73,19 @@ export default function Home() {
         setupEnabled?: boolean;
       };
       if (!res.ok || !data.success) throw new Error('Could not check sign-in');
-      if (data.user) setAuth({ status: 'signedIn', user: data.user });
-      else if (data.needsSetup) setAuth({ status: 'setup', setupEnabled: data.setupEnabled === true });
-      else setAuth({ status: 'signedOut' });
+      if (data.user) {
+        localStorage.setItem(CACHED_USER, JSON.stringify(data.user));
+        setAuth({ status: 'signedIn', user: data.user });
+      } else {
+        localStorage.removeItem(CACHED_USER);
+        if (data.needsSetup) setAuth({ status: 'setup', setupEnabled: data.setupEnabled === true });
+        else setAuth({ status: 'signedOut' });
+      }
     } catch {
-      setAuth({ status: 'error', message: 'Could not reach the server. Check your connection and try again.' });
+      // No signal: let a worker who was already signed in keep working.
+      const cached = readCachedUser();
+      if (cached) setAuth({ status: 'signedIn', user: cached });
+      else setAuth({ status: 'error', message: 'No internet connection. You need to be online to sign in.' });
     }
   }, []);
 
@@ -54,14 +93,32 @@ export default function Home() {
     void refreshAuth();
   }, [refreshAuth]);
 
+  // When the connection returns, confirm the session is still valid.
+  useEffect(() => {
+    const onBack = () => void refreshAuth();
+    window.addEventListener('online', onBack);
+    return () => window.removeEventListener('online', onBack);
+  }, [refreshAuth]);
+
   const signOut = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } finally {
-      setActiveTab('worker');
-      setAuth({ status: 'signedOut' });
-      void refreshAuth();
+    const uid = auth.status === 'signedIn' ? auth.user.id : null;
+    if (uid) {
+      const waiting = (await getQueue(uid).catch(() => [])).length;
+      if (waiting > 0 && !window.confirm(`You have ${waiting} item${waiting === 1 ? '' : 's'} not uploaded yet. They stay safely on this phone until you sign in again. Sign out anyway?`)) return;
     }
+    let ok = false;
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      ok = res.ok;
+    } catch {
+      ok = false;
+    }
+    if (!ok) localStorage.setItem(PENDING_LOGOUT, '1');
+    localStorage.removeItem(CACHED_USER);
+    if (uid) await clearCachedCases(uid).catch(() => undefined);
+    setActiveTab('worker');
+    setAuth({ status: 'signedOut' });
+    if (ok) void refreshAuth();
   };
 
   const startScreening = (child: { id: string; name: string; area?: string | null }) => {
@@ -127,6 +184,9 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center space-x-3 text-sm">
+            {!online && (
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-400 text-amber-950">Offline</span>
+            )}
             <div className="text-right leading-tight">
               <p className="font-semibold">{user.name}</p>
               <p className="text-xs text-emerald-100">{ROLE_LABEL[user.role]}</p>
@@ -139,10 +199,11 @@ export default function Home() {
       </header>
 
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {activeTab === 'worker' && <HealthWorkerDashboard onStartScreening={startScreening} />}
+        {activeTab === 'worker' && <HealthWorkerDashboard userId={user.id} onStartScreening={startScreening} />}
         {activeTab === 'screening' && (
           <div className="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
             <ScdScreeningWizard
+              userId={user.id}
               key={screeningChild.id ?? 'none'}
               childName={screeningChild.name}
               childId={screeningChild.id}

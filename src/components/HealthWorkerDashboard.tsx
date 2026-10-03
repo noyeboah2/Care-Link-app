@@ -1,10 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Wifi, WifiOff, Bell, UserPlus, Search,
-  Clock, ChevronRight, Phone, Shield, X, Loader2
+  Bell, UserPlus, Search,
+  Clock, ChevronRight, Phone, Shield, X, Loader2, CloudOff
 } from 'lucide-react';
 import { CaseDetails } from '@/components/CaseDetails';
+import { SyncBadge, SyncIssues } from '@/components/SyncStatus';
 import { AREAS } from '@/lib/hospitals';
+import { loadCases as loadCachedCases, saveCases, submitNewChild, SessionExpiredError, type CaseSummary } from '@/lib/offline';
+import { applyQueue, useOfflineStatus } from '@/lib/useOffline';
+
+type ChildSummary = CaseSummary;
 
 interface AlertItem {
   id: string;
@@ -13,75 +18,103 @@ interface AlertItem {
   detail: string;
 }
 
-interface ChildSummary {
-  id: string;
-  fullName: string;
-  age: number;
-  gender: string;
-  caregiverPhone: string;
-  followUpDate: string | null;
-  area: string | null;
-  lastRisk: 'HIGH_RISK' | 'LOW_RISK' | 'PENDING';
-  followUpStatus: 'PENDING' | 'OVERDUE' | 'COMPLETED';
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86400000);
+
+// Worked out on the phone from the case list, so alerts also work offline.
+function buildAlerts(children: ChildSummary[], today: string): AlertItem[] {
+  const items: AlertItem[] = [];
+  for (const c of children) {
+    if (c.lastRisk === 'HIGH_RISK') items.push({ id: c.id, name: c.fullName, kind: 'HIGH_RISK', detail: 'High risk. Needs referral follow-up' });
+  }
+  for (const c of children) {
+    if (c.followUpDate && c.followUpDate < today) {
+      const d = daysBetween(c.followUpDate, today);
+      items.push({ id: c.id, name: c.fullName, kind: 'OVERDUE', detail: `Follow-up overdue by ${d} day${d === 1 ? '' : 's'}` });
+    }
+  }
+  for (const c of children) {
+    if (c.followUpDate === today) items.push({ id: c.id, name: c.fullName, kind: 'DUE_TODAY', detail: 'Follow-up due today' });
+  }
+  return items.slice(0, 30);
 }
 
-interface Stats {
-  totalActive: number;
-  followUpsToday: number;
-  pendingScreenings: number;
-  crisisAlerts: number;
-}
+const fmtSaved = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? 'earlier' : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
 
-const EMPTY_STATS: Stats = { totalActive: 0, followUpsToday: 0, pendingScreenings: 0, crisisAlerts: 0 };
-
-export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: string; name: string; area?: string | null }) => void }> = ({ onStartScreening }) => {
-  const [isOnline, setIsOnline] = useState(true);
+export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening: (child: { id: string; name: string; area?: string | null }) => void }> = ({ userId, onStartScreening }) => {
+  const status = useOfflineStatus(userId);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'assigned' | 'upcoming' | 'overdue'>('assigned');
-  const [children, setChildren] = useState<ChildSummary[]>([]);
-  const [stats, setStats] = useState<Stats>(EMPTY_STATS);
+  const [serverChildren, setServerChildren] = useState<ChildSummary[]>([]);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [notice, setNotice] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [form, setForm] = useState({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
 
-  const loadAlerts = useCallback(async () => {
-    try {
-      const res = await fetch('/api/alerts', { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = (await res.json()) as { success: boolean; items?: AlertItem[] };
-      if (data.success) setAlerts(data.items ?? []);
-    } catch {
-      /* alerts are optional; ignore network errors */
-    }
-  }, []);
+  const today = new Date().toISOString().slice(0, 10);
+  // Saved list + anything still waiting to upload.
+  const children = useMemo(() => applyQueue(serverChildren, status.pending), [serverChildren, status.pending]);
+  const stats = useMemo(
+    () => ({
+      totalActive: children.length,
+      followUpsToday: children.filter((c) => c.followUpDate === today).length,
+      pendingScreenings: children.filter((c) => c.lastRisk === 'PENDING').length,
+      crisisAlerts: children.filter((c) => c.lastRisk === 'HIGH_RISK').length,
+    }),
+    [children, today],
+  );
+  const alerts = useMemo(() => buildAlerts(children, today), [children, today]);
+  const pendingCreateIds = useMemo(
+    () => new Set(status.pending.filter((q) => q.type === 'createChild').map((q) => String(q.payload.id))),
+    [status.pending],
+  );
 
   const loadCases = useCallback(async () => {
     setLoadError('');
-    void loadAlerts();
     try {
       const res = await fetch('/api/children', { cache: 'no-store' });
       if (res.status === 401) { window.location.reload(); return; }
-      const data = (await res.json()) as { success: boolean; children?: ChildSummary[]; stats?: Stats; error?: string };
+      const data = (await res.json()) as { success: boolean; children?: ChildSummary[]; error?: string };
       if (!res.ok || !data.success) throw new Error(data.error || 'Could not load cases');
-      setChildren(data.children ?? []);
-      setStats(data.stats ?? EMPTY_STATS);
+      setServerChildren(data.children ?? []);
+      setCachedAt(null);
+      void saveCases(userId, data.children ?? []).catch(() => undefined);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Could not load cases');
+      // No signal or the server is unreachable: use the list saved on this phone.
+      const cached = await loadCachedCases(userId).catch(() => null);
+      if (cached) {
+        setServerChildren(cached.cases);
+        setCachedAt(cached.savedAt ?? 'earlier');
+      } else {
+        setLoadError(
+          err instanceof TypeError
+            ? 'You are offline and no saved list is on this phone yet. Connect to the internet once to download your cases.'
+            : err instanceof Error ? err.message : 'Could not load cases',
+        );
+      }
     } finally {
       setLoading(false);
     }
-  }, [loadAlerts]);
+  }, [userId]);
 
   useEffect(() => {
     void loadCases();
-  }, [loadCases]);
+  }, [loadCases, status.syncedTick, status.online]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(''), 7000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   const openModal = () => {
     setForm({ fullName: '', age: '', gender: 'Male', caregiverPhone: '', area: '' });
@@ -107,34 +140,28 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
     setSaving(true);
     setSaveError('');
     try {
-      const res = await fetch('/api/children', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: form.fullName,
-          age: Number(form.age),
-          gender: form.gender,
-          caregiverPhone: form.caregiverPhone,
-          area: form.area,
-        }),
+      const { outcome, id } = await submitNewChild(userId, {
+        fullName: form.fullName,
+        age: Number(form.age),
+        gender: form.gender,
+        caregiverPhone: form.caregiverPhone,
+        area: form.area,
       });
-      if (res.status === 401) { window.location.reload(); return; }
-      const data = (await res.json()) as { success: boolean; child?: ChildSummary; error?: string };
-      if (!res.ok || !data.success || !data.child) throw new Error(data.error || 'Could not save the case');
       setShowModal(false);
+      if (outcome.status === 'queued') setNotice('Saved on this phone. It will upload automatically when you are back online.');
       if (startScreeningNow) {
-        onStartScreening({ id: data.child.id, name: data.child.fullName, area: data.child.area });
+        onStartScreening({ id, name: form.fullName.trim(), area: form.area });
       } else {
         await loadCases();
       }
     } catch (err) {
+      if (err instanceof SessionExpiredError) { window.location.reload(); return; }
       setSaveError(err instanceof Error ? err.message : 'Could not save the case');
     } finally {
       setSaving(false);
     }
   };
 
-  const today = new Date().toISOString().slice(0, 10);
   const filteredChildren = children.filter((c) => {
     const matchesSearch =
       c.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -155,17 +182,7 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
         </div>
 
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => setIsOnline(!isOnline)}
-            className={`flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full border transition ${
-              isOnline
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-            }`}
-          >
-            {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-            <span>{isOnline ? 'Online' : 'Offline Cache'}</span>
-          </button>
+          <SyncBadge status={status} />
 
           <button
             onClick={() => setShowAlerts((v) => !v)}
@@ -237,6 +254,19 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
       </section>
 
       <main className="p-4 space-y-4 flex-grow">
+        {cachedAt && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2 text-xs flex items-start space-x-2">
+            <CloudOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>
+              Showing the list saved on this phone{cachedAt !== 'earlier' ? ` (${fmtSaved(cachedAt)})` : ''}. New cases and screenings are kept here and upload automatically.
+            </span>
+          </div>
+        )}
+        {notice && (
+          <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-xl px-3 py-2 text-xs font-semibold">{notice}</div>
+        )}
+        <SyncIssues status={status} userId={userId} />
+
         <div className="relative">
           <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
           <input
@@ -326,6 +356,12 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
                   >
                     {child.lastRisk === 'PENDING' ? 'NOT SCREENED' : child.lastRisk.replace('_', ' ')}
                   </span>
+                  {child.unsynced && (
+                    <span className="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full flex items-center space-x-1">
+                      <CloudOff className="w-3 h-3" />
+                      <span>Not uploaded yet</span>
+                    </span>
+                  )}
                   {child.followUpDate && child.followUpStatus !== 'OVERDUE' && (
                     <span className="text-[10px] font-semibold text-slate-500">Follow-up {child.followUpDate}</span>
                   )}
@@ -458,6 +494,8 @@ export const HealthWorkerDashboard: React.FC<{ onStartScreening: (child: { id: s
       {openCaseId && (
         <CaseDetails
           caseId={openCaseId}
+          summary={children.find((c) => c.id === openCaseId)}
+          localOnly={pendingCreateIds.has(openCaseId)}
           onClose={() => setOpenCaseId(null)}
           onChanged={() => void loadCases()}
           onStartScreening={(c) => { setOpenCaseId(null); onStartScreening(c); }}
