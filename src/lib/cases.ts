@@ -11,6 +11,9 @@ export interface CaseRow {
   lastRisk: 'HIGH_RISK' | 'LOW_RISK' | null;
   createdBy: string | null;
   ownerName: string | null;
+  area: string | null;
+  createdAt: string;
+  smsConsent: boolean;
 }
 
 // Ghana is on GMT all year, so the UTC date is the local date.
@@ -24,7 +27,7 @@ export async function loadCases(db: Db, user: SessionUser): Promise<CaseRow[]> {
   const onlyMine = !canSeeAll(user.role);
   const { results } = await db
     .prepare(
-      `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date, c.created_by,
+      `SELECT c.id, c.full_name, c.age, c.gender, c.caregiver_phone, c.follow_up_date, c.created_by, c.area, c.created_at, c.sms_consent,
          u.name AS owner_name,
          (SELECT s.risk_level FROM screenings s WHERE s.child_id = c.id
           ORDER BY s.created_at DESC, s.rowid DESC LIMIT 1) AS last_risk
@@ -36,7 +39,7 @@ export async function loadCases(db: Db, user: SessionUser): Promise<CaseRow[]> {
     .bind(...(onlyMine ? [user.id] : []))
     .all<{
       id: string; full_name: string; age: number; gender: string; caregiver_phone: string;
-      follow_up_date: string | null; created_by: string | null; owner_name: string | null;
+      follow_up_date: string | null; created_by: string | null; owner_name: string | null; area: string | null; created_at: string; sms_consent: number;
       last_risk: 'HIGH_RISK' | 'LOW_RISK' | null;
     }>();
   return results.map((r) => ({
@@ -49,6 +52,9 @@ export async function loadCases(db: Db, user: SessionUser): Promise<CaseRow[]> {
     lastRisk: r.last_risk,
     createdBy: r.created_by,
     ownerName: r.owner_name,
+    area: r.area,
+    createdAt: r.created_at,
+    smsConsent: r.sms_consent === 1,
   }));
 }
 

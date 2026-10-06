@@ -17,7 +17,7 @@ const ACTION_LABEL: Record<string, string> = {
   USER_CREATED: 'Added a user', USER_DEACTIVATED: 'Deactivated a user', USER_ACTIVATED: 'Reactivated a user', USER_ROLE_CHANGED: 'Changed a role', USER_PASSWORD_RESET: 'Reset a password',
   CASE_CREATED: 'Added a case', CASE_VIEWED: 'Viewed a case', CASE_UPDATED: 'Edited a case', CASE_DELETED: 'Deleted a case', SCREENING_RECORDED: 'Recorded a screening',
   SMS_SETTINGS_CHANGED: 'Changed SMS settings', SMS_TEST_SENT: 'Sent a test SMS', SMS_RUN_MANUAL: 'Sent reminders manually',
-  BACKUP_EXPORTED: 'Downloaded data', BACKUP_RESTORED: 'Restored a backup', CASES_CLEARED: 'Cleared all cases', AUDIT_RESET: 'Reset the audit log',
+  BACKUP_EXPORTED: 'Downloaded data', DATA_EXPORTED: 'Exported a report', BACKUP_RESTORED: 'Restored a backup', CASES_CLEARED: 'Cleared all cases', AUDIT_RESET: 'Reset the audit log',
 };
 const DANGER = ['LOGIN_FAILED', 'CASE_DELETED', 'CASES_CLEARED', 'AUDIT_RESET', 'BACKUP_RESTORED', 'USER_DEACTIVATED', 'USER_ROLE_CHANGED', 'USER_PASSWORD_RESET'];
 
