@@ -4,10 +4,12 @@ import { ReferralCard } from './ReferralCard';
 import { TwiAudioPlayer } from './TwiAudioPlayer';
 import { SCREENING_QUESTIONS, scoreAnswers } from '@/lib/risk';
 import { submitScreening, SessionExpiredError } from '@/lib/offline';
+import { useI18n } from '@/lib/i18n';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'queued' | 'error' | 'unsaved';
 
 export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; childId?: string | null; childArea?: string | null; onComplete: () => void }> = ({ userId, childName, childId = null, childArea = null, onComplete }) => {
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,16 +70,14 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
           : 'bg-amber-50 text-amber-800 border border-amber-200'
       }`}
     >
-      {saveStatus === 'saving' && 'Saving result...'}
-      {saveStatus === 'saved' && 'Result saved to the child’s record.'}
-      {saveStatus === 'queued' && 'Saved on this phone. It will upload automatically when you are back online.'}
-      {saveStatus === 'unsaved' && 'Not saved: start the screening from a child’s card on the dashboard.'}
+      {saveStatus === 'saving' && t('Saving result...')}
+      {saveStatus === 'saved' && t('Result saved to the child’s record.')}
+      {saveStatus === 'queued' && t('Saved on this phone. It will upload automatically when you are back online.')}
+      {saveStatus === 'unsaved' && t('Not saved: start the screening from a child’s card on the dashboard.')}
       {saveStatus === 'error' && (
         <span>
-          Could not save the result.{' '}
-          <button onClick={() => saveScreening(finalAnswers)} className="underline font-bold">
-            Try again
-          </button>
+          {t('Could not save the result.')}{' '}
+          <button onClick={() => saveScreening(finalAnswers)} className="underline font-bold">{t('Try again')}</button>
         </span>
       )}
     </div>
@@ -87,8 +87,8 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center p-6 space-y-4">
         <HeartPulse className="w-16 h-16 text-blue-900 animate-bounce" />
-        <h3 className="text-lg font-bold text-slate-800">Processing Medical Engine Rules...</h3>
-        <p className="text-sm text-slate-500">Evaluating clinical risk factors for {childName}</p>
+        <h3 className="text-lg font-bold text-slate-800">{t('Checking the answers...')}</h3>
+        <p className="text-sm text-slate-500">{t('Working out the risk for {name}', { name: childName })}</p>
       </div>
     );
   }
@@ -98,10 +98,8 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
       <div className="p-4 max-w-md mx-auto space-y-5 animate-in fade-in duration-300">
         <div className="bg-red-600 text-white p-5 rounded-2xl shadow-lg border border-red-700 text-center space-y-2">
           <AlertTriangle className="w-12 h-12 mx-auto animate-pulse" />
-          <h2 className="text-2xl font-black uppercase tracking-tight">HIGH RISK DETECTED</h2>
-          <p className="text-xs text-red-100 font-medium">
-            Immediate Clinical Evaluation & Diagnostic Electrophoresis Required.
-          </p>
+          <h2 className="text-2xl font-black uppercase tracking-tight">{t('HIGH RISK DETECTED')}</h2>
+          <p className="text-xs text-red-100 font-medium">{t('Immediate Clinical Evaluation & Diagnostic Electrophoresis Required.')}</p>
         </div>
 
         <ReferralCard areaId={childArea} />
@@ -111,9 +109,7 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
         <button
           onClick={onComplete}
           className="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition"
-        >
-          Return to Dashboard
-        </button>
+        >{t('Return to Dashboard')}</button>
       </div>
     );
   }
@@ -123,10 +119,8 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
       <div className="p-4 max-w-md mx-auto space-y-5 animate-in fade-in duration-300">
         <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-lg border border-emerald-700 text-center space-y-2">
           <CheckCircle className="w-12 h-12 mx-auto" />
-          <h2 className="text-2xl font-black uppercase tracking-tight">LOW RISK ASSESSMENT</h2>
-          <p className="text-xs text-emerald-100 font-medium">
-            No critical indicators found today. Provide preventive guidance.
-          </p>
+          <h2 className="text-2xl font-black uppercase tracking-tight">{t('LOW RISK ASSESSMENT')}</h2>
+          <p className="text-xs text-emerald-100 font-medium">{t('No critical indicators found today. Provide preventive guidance.')}</p>
         </div>
 
         <TwiAudioPlayer
@@ -140,9 +134,7 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
         <button
           onClick={onComplete}
           className="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition"
-        >
-          Done
-        </button>
+        >{t('Done')}</button>
       </div>
     );
   }
@@ -158,7 +150,7 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
           <ArrowLeft className="w-5 h-5" />
         </button>
         <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">
-          Question {step + 1} of {SCREENING_QUESTIONS.length}
+          {t('Question {n} of {total}', { n: step + 1, total: SCREENING_QUESTIONS.length })}
         </span>
         <span className="text-xs font-semibold text-blue-900 bg-blue-50 px-2 py-0.5 rounded">
           {childName}
@@ -173,23 +165,19 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
       </div>
 
       <div className="space-y-3 py-4 min-h-[160px]">
-        <h3 className="text-xl font-bold text-slate-900 leading-snug">{currentQ.text}</h3>
-        <p className="text-sm text-slate-500 font-medium">{currentQ.subtext}</p>
+        <h3 className="text-xl font-bold text-slate-900 leading-snug">{t(currentQ.text)}</h3>
+        <p className="text-sm text-slate-500 font-medium">{t(currentQ.subtext)}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <button
           onClick={() => handleAnswer(false)}
           className="min-h-[56px] border-2 border-slate-200 hover:border-slate-400 text-slate-800 font-bold text-lg rounded-xl active:bg-slate-100 transition shadow-sm"
-        >
-          NO
-        </button>
+        >{t('NO')}</button>
         <button
           onClick={() => handleAnswer(true)}
           className="min-h-[56px] bg-blue-900 hover:bg-blue-800 text-white font-bold text-lg rounded-xl active:scale-95 transition shadow-md shadow-blue-900/20"
-        >
-          YES
-        </button>
+        >{t('YES')}</button>
       </div>
     </div>
   );

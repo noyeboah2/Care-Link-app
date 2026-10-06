@@ -8,6 +8,8 @@ import { SyncBadge, SyncIssues } from '@/components/SyncStatus';
 import { AREAS } from '@/lib/hospitals';
 import { loadCases as loadCachedCases, saveCases, submitNewChild, SessionExpiredError, type CaseSummary } from '@/lib/offline';
 import { applyQueue, useOfflineStatus } from '@/lib/useOffline';
+import { useI18n } from '@/lib/i18n';
+import { msg, RISK_LABEL } from '@/lib/msg';
 
 type ChildSummary = CaseSummary;
 
@@ -16,6 +18,7 @@ interface AlertItem {
   name: string;
   kind: 'HIGH_RISK' | 'OVERDUE' | 'DUE_TODAY';
   detail: string;
+  vars?: Record<string, number>;
 }
 
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86400000);
@@ -24,16 +27,16 @@ const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - D
 function buildAlerts(children: ChildSummary[], today: string): AlertItem[] {
   const items: AlertItem[] = [];
   for (const c of children) {
-    if (c.lastRisk === 'HIGH_RISK') items.push({ id: c.id, name: c.fullName, kind: 'HIGH_RISK', detail: 'High risk. Needs referral follow-up' });
+    if (c.lastRisk === 'HIGH_RISK') items.push({ id: c.id, name: c.fullName, kind: 'HIGH_RISK', detail: msg('High risk. Needs referral follow-up') });
   }
   for (const c of children) {
     if (c.followUpDate && c.followUpDate < today) {
       const d = daysBetween(c.followUpDate, today);
-      items.push({ id: c.id, name: c.fullName, kind: 'OVERDUE', detail: `Follow-up overdue by ${d} day${d === 1 ? '' : 's'}` });
+      items.push({ id: c.id, name: c.fullName, kind: 'OVERDUE', detail: d === 1 ? msg('Follow-up overdue by 1 day') : msg('Follow-up overdue by {d} days'), vars: { d } });
     }
   }
   for (const c of children) {
-    if (c.followUpDate === today) items.push({ id: c.id, name: c.fullName, kind: 'DUE_TODAY', detail: 'Follow-up due today' });
+    if (c.followUpDate === today) items.push({ id: c.id, name: c.fullName, kind: 'DUE_TODAY', detail: msg('Follow-up due today') });
   }
   return items.slice(0, 30);
 }
@@ -44,6 +47,7 @@ const fmtSaved = (iso: string) => {
 };
 
 export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening: (child: { id: string; name: string; area?: string | null }) => void }> = ({ userId, onStartScreening }) => {
+  const { t } = useI18n();
   const status = useOfflineStatus(userId);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'assigned' | 'upcoming' | 'overdue'>('assigned');
@@ -84,7 +88,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
       const res = await fetch('/api/children', { cache: 'no-store' });
       if (res.status === 401) { window.location.reload(); return; }
       const data = (await res.json()) as { success: boolean; children?: ChildSummary[]; error?: string };
-      if (!res.ok || !data.success) throw new Error(data.error || 'Could not load cases');
+      if (!res.ok || !data.success) throw new Error(data.error || msg('Could not load cases'));
       setServerChildren(data.children ?? []);
       setCachedAt(null);
       void saveCases(userId, data.children ?? []).catch(() => undefined);
@@ -97,8 +101,8 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
       } else {
         setLoadError(
           err instanceof TypeError
-            ? 'You are offline and no saved list is on this phone yet. Connect to the internet once to download your cases.'
-            : err instanceof Error ? err.message : 'Could not load cases',
+            ? msg('You are offline and no saved list is on this phone yet. Connect to the internet once to download your cases.')
+            : err instanceof Error ? err.message : msg('Could not load cases'),
         );
       }
     } finally {
@@ -125,12 +129,12 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (form.fullName.trim().length < 2) e.fullName = "Enter the child's full name";
+    if (form.fullName.trim().length < 2) e.fullName = msg("Enter the child's full name");
     const age = Number(form.age);
-    if (form.age === '' || !Number.isInteger(age) || age < 0 || age > 18) e.age = 'Enter an age from 0 to 18';
-    if (!form.area) e.area = 'Choose where the child lives';
+    if (form.age === '' || !Number.isInteger(age) || age < 0 || age > 18) e.age = msg('Enter an age from 0 to 18');
+    if (!form.area) e.area = msg('Choose where the child lives');
     const phone = form.caregiverPhone.replace(/[\s-]/g, '');
-    if (!/^(\+233|0)\d{9}$/.test(phone)) e.caregiverPhone = 'Use a Ghana number, e.g. 0244123456';
+    if (!/^(\+233|0)\d{9}$/.test(phone)) e.caregiverPhone = msg('Use a Ghana number, e.g. 0244123456');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -149,7 +153,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
         smsConsent: form.smsConsent,
       });
       setShowModal(false);
-      if (outcome.status === 'queued') setNotice('Saved on this phone. It will upload automatically when you are back online.');
+      if (outcome.status === 'queued') setNotice(msg('Saved on this phone. It will upload automatically when you are back online.'));
       if (startScreeningNow) {
         onStartScreening({ id, name: form.fullName.trim(), area: form.area });
       } else {
@@ -157,7 +161,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
       }
     } catch (err) {
       if (err instanceof SessionExpiredError) { window.location.reload(); return; }
-      setSaveError(err instanceof Error ? err.message : 'Could not save the case');
+      setSaveError(err instanceof Error ? err.message : msg('Could not save the case'));
     } finally {
       setSaving(false);
     }
@@ -179,7 +183,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
       <header className="bg-blue-900 text-white p-4 relative z-30 flex items-center justify-between shadow-md">
         <div className="flex items-center space-x-2">
           <Shield className="w-6 h-6 text-emerald-400" />
-          <h1 className="font-black tracking-tight text-lg">SCD Care Ghana</h1>
+          <h1 className="font-black tracking-tight text-lg">{t('SCD Care Ghana')}</h1>
         </div>
 
         <div className="flex items-center space-x-3">
@@ -202,13 +206,13 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
         {showAlerts && (
           <div className="absolute right-3 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-40">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
-              <p className="text-sm font-black">Alerts</p>
-              <button onClick={() => setShowAlerts(false)} aria-label="Close alerts" className="text-slate-400 hover:text-slate-700">
+              <p className="text-sm font-black">{t('Alerts')}</p>
+              <button onClick={() => setShowAlerts(false)} aria-label={t('Close alerts')} className="text-slate-400 hover:text-slate-700">
                 <X className="w-4 h-4" />
               </button>
             </div>
             {alerts.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-slate-500 text-center">No alerts. Everything is up to date.</p>
+              <p className="px-4 py-6 text-sm text-slate-500 text-center">{t('No alerts. Everything is up to date.')}</p>
             ) : (
               <ul className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                 {alerts.map((a, i) => (
@@ -224,7 +228,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                       />
                       <span>
                         <span className="block text-sm font-bold">{a.name}</span>
-                        <span className="block text-xs text-slate-500">{a.detail}</span>
+                        <span className="block text-xs text-slate-500">{t(a.detail, a.vars)}</span>
                       </span>
                     </button>
                   </li>
@@ -237,19 +241,19 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
 
       <section className="p-4 grid grid-cols-2 gap-3 bg-blue-950 text-white">
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Total Active Cases</span>
+          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('Total Active Cases')}</span>
           <p className="text-2xl font-black text-white mt-1">{stats.totalActive}</p>
         </div>
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Today's Follow-ups</span>
+          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('Today\'s Follow-ups')}</span>
           <p className="text-2xl font-black text-emerald-400 mt-1">{stats.followUpsToday}</p>
         </div>
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Pending Screenings</span>
+          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('Pending Screenings')}</span>
           <p className="text-2xl font-black text-amber-400 mt-1">{stats.pendingScreenings}</p>
         </div>
         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Crisis Alerts</span>
+          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('Crisis Alerts')}</span>
           <p className="text-2xl font-black text-red-500 mt-1">{stats.crisisAlerts}</p>
         </div>
       </section>
@@ -259,12 +263,14 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
           <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2 text-xs flex items-start space-x-2">
             <CloudOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>
-              Showing the list saved on this phone{cachedAt !== 'earlier' ? ` (${fmtSaved(cachedAt)})` : ''}. New cases and screenings are kept here and upload automatically.
+              {cachedAt !== 'earlier'
+                ? t('Showing the list saved on this phone ({when}). New cases and screenings are kept here and upload automatically.', { when: fmtSaved(cachedAt) })
+                : t('Showing the list saved on this phone. New cases and screenings are kept here and upload automatically.')}
             </span>
           </div>
         )}
         {notice && (
-          <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-xl px-3 py-2 text-xs font-semibold">{notice}</div>
+          <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-xl px-3 py-2 text-xs font-semibold">{t(notice)}</div>
         )}
         <SyncIssues status={status} userId={userId} />
 
@@ -272,7 +278,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
           <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
           <input
             type="text"
-            placeholder="Search child name or phone..."
+            placeholder={t('Search child name or phone...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white border border-slate-200 pl-11 pr-4 py-3 rounded-xl text-sm font-medium shadow-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
@@ -288,7 +294,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                 activeTab === tab ? 'bg-white text-blue-900 shadow-sm' : 'hover:text-slate-900'
               }`}
             >
-              {tab === 'assigned' ? 'Assigned' : tab === 'upcoming' ? 'Upcoming' : 'Overdue'}
+              {t(tab === 'assigned' ? msg('Assigned') : tab === 'upcoming' ? msg('Upcoming') : msg('Overdue'))}
             </button>
           ))}
         </div>
@@ -296,28 +302,26 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
         {loading && (
           <div className="flex items-center justify-center py-10 text-slate-500 text-sm font-medium space-x-2">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Loading cases...</span>
+            <span>{t('Loading cases...')}</span>
           </div>
         )}
 
         {!loading && loadError && (
           <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm text-center space-y-2">
-            <p className="font-semibold">{loadError}</p>
-            <button onClick={() => { setLoading(true); void loadCases(); }} className="underline font-bold">
-              Try again
-            </button>
+            <p className="font-semibold">{t(loadError)}</p>
+            <button onClick={() => { setLoading(true); void loadCases(); }} className="underline font-bold">{t('Try again')}</button>
           </div>
         )}
 
         {!loading && !loadError && filteredChildren.length === 0 && (
           <div className="text-center py-10 text-slate-500 text-sm space-y-1">
             <p className="font-bold text-slate-700">
-              {children.length === 0 ? 'No cases yet' : 'No matching cases'}
+              {t(children.length === 0 ? msg('No cases yet') : msg('No matching cases'))}
             </p>
             <p>
               {children.length === 0
-                ? 'Tap “New Case” to add your first child.'
-                : 'Try a different search or tab.'}
+                ? t('Tap “New Case” to add your first child.')
+                : t('Try a different search or tab.')}
             </p>
           </div>
         )}
@@ -338,7 +342,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                 <div className="flex items-center space-x-2">
                   <h4 className="font-bold text-slate-900">{child.fullName}</h4>
                   <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
-                    {child.gender}, {child.age}y
+                    {t(child.gender)}, {t('{n}y', { n: child.age })}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2 text-xs text-slate-500">
@@ -355,21 +359,21 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                         : 'bg-emerald-100 text-emerald-700'
                     }`}
                   >
-                    {child.lastRisk === 'PENDING' ? 'NOT SCREENED' : child.lastRisk.replace('_', ' ')}
+                    {t(RISK_LABEL[child.lastRisk])}
                   </span>
                   {child.unsynced && (
                     <span className="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full flex items-center space-x-1">
                       <CloudOff className="w-3 h-3" />
-                      <span>Not uploaded yet</span>
+                      <span>{t('Not uploaded yet')}</span>
                     </span>
                   )}
                   {child.followUpDate && child.followUpStatus !== 'OVERDUE' && (
-                    <span className="text-[10px] font-semibold text-slate-500">Follow-up {child.followUpDate}</span>
+                    <span className="text-[10px] font-semibold text-slate-500">{t('Follow-up {date}', { date: child.followUpDate })}</span>
                   )}
                   {child.followUpStatus === 'OVERDUE' && (
                     <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full flex items-center space-x-1">
                       <Clock className="w-3 h-3" />
-                      <span>Overdue</span>
+                      <span>{t('Overdue')}</span>
                     </span>
                   )}
                 </div>
@@ -378,7 +382,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
               <button
                 onClick={() => onStartScreening({ id: child.id, name: child.fullName, area: child.area })}
                 className="ml-3 bg-blue-900 hover:bg-blue-800 text-white p-3 rounded-xl shadow-md active:scale-95 transition"
-                aria-label="Start screening" title="Start screening"
+                aria-label={t('Start screening')} title={t('Start screening')}
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -392,32 +396,32 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
         className="fixed bottom-6 right-6 bg-blue-900 text-white font-bold p-4 rounded-full shadow-2xl flex items-center space-x-2 hover:bg-blue-800 active:scale-90 transition z-40 border-2 border-white"
       >
         <UserPlus className="w-6 h-6" />
-        <span className="text-sm pr-1">New Case</span>
+        <span className="text-sm pr-1">{t('New Case')}</span>
       </button>
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
           <div className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-slate-900">New Case</h2>
-              <button onClick={() => setShowModal(false)} aria-label="Close" className="p-1 text-slate-500 hover:text-slate-900">
+              <h2 className="text-lg font-black text-slate-900">{t('New Case')}</h2>
+              <button onClick={() => setShowModal(false)} aria-label={t('Close')} className="p-1 text-slate-500 hover:text-slate-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-600">Child's full name</label>
+              <label className="text-xs font-bold text-slate-600">{t('Child\'s full name')}</label>
               <input
                 value={form.fullName}
                 onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                 className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
-                placeholder="e.g. Kofi Addo"
+                placeholder={t('e.g. Kofi Addo')}
               />
-              {errors.fullName && <p className="text-xs text-red-600 mt-1">{errors.fullName}</p>}
+              {errors.fullName && <p className="text-xs text-red-600 mt-1">{t(errors.fullName)}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-slate-600">Age (years)</label>
+                <label className="text-xs font-bold text-slate-600">{t('Age (years)')}</label>
                 <input
                   type="number"
                   min={0}
@@ -426,23 +430,23 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                   onChange={(e) => setForm({ ...form, age: e.target.value })}
                   className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
                 />
-                {errors.age && <p className="text-xs text-red-600 mt-1">{errors.age}</p>}
+                {errors.age && <p className="text-xs text-red-600 mt-1">{t(errors.age)}</p>}
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-600">Gender</label>
+                <label className="text-xs font-bold text-slate-600">{t('Gender')}</label>
                 <select
                   value={form.gender}
                   onChange={(e) => setForm({ ...form, gender: e.target.value })}
                   className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-900 focus:outline-none"
                 >
-                  <option>Male</option>
-                  <option>Female</option>
+                  <option value="Male">{t('Male')}</option>
+                  <option value="Female">{t('Female')}</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-600">Caregiver phone</label>
+              <label className="text-xs font-bold text-slate-600">{t('Caregiver phone')}</label>
               <input
                 type="tel"
                 value={form.caregiverPhone}
@@ -450,23 +454,23 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                 className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
                 placeholder="0244123456"
               />
-              {errors.caregiverPhone && <p className="text-xs text-red-600 mt-1">{errors.caregiverPhone}</p>}
+              {errors.caregiverPhone && <p className="text-xs text-red-600 mt-1">{t(errors.caregiverPhone)}</p>}
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-600">Where does the child live?</label>
+              <label className="text-xs font-bold text-slate-600">{t('Where does the child live?')}</label>
               <select
                 value={form.area}
                 onChange={(e) => setForm({ ...form, area: e.target.value })}
                 className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-900 focus:outline-none"
               >
-                <option value="">Choose a location...</option>
+                <option value="">{t('Choose a location...')}</option>
                 {AREAS.map((a) => (
                   <option key={a.id} value={a.id}>{a.label}</option>
                 ))}
               </select>
-              <p className="text-[11px] text-slate-500 mt-1">Used to recommend the right referral hospital.</p>
-              {errors.area && <p className="text-xs text-red-600 mt-1">{errors.area}</p>}
+              <p className="text-[11px] text-slate-500 mt-1">{t('Used to recommend the right referral hospital.')}</p>
+              {errors.area && <p className="text-xs text-red-600 mt-1">{t(errors.area)}</p>}
             </div>
 
             <label className="flex items-start space-x-3 bg-slate-50 border border-slate-200 rounded-xl p-3 cursor-pointer">
@@ -477,13 +481,11 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                 className="mt-1 w-4 h-4 accent-blue-900"
               />
               <span className="text-xs text-slate-700">
-                <span className="font-bold block">The caregiver agrees to receive SMS reminders</span>
-                Tick only after asking the caregiver. Messages only mention the child’s first name and the visit date. They can stop any time by telling you.
-              </span>
+                <span className="font-bold block">{t('The caregiver agrees to receive SMS reminders')}</span>{t('Tick only after asking the caregiver. Messages only mention the child’s first name and the visit date. They can stop any time by telling you.')}</span>
             </label>
 
             {saveError && (
-              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{saveError}</p>
+              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{t(saveError)}</p>
             )}
 
             <div className="flex flex-col gap-2 pt-1">
@@ -492,15 +494,13 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                 disabled={saving}
                 className="w-full bg-blue-900 hover:bg-blue-800 disabled:opacity-60 text-white font-bold py-3 rounded-xl active:scale-95 transition"
               >
-                {saving ? 'Saving...' : 'Save & Start Screening'}
+                {saving ? t('Saving...') : t('Save & Start Screening')}
               </button>
               <button
                 onClick={() => saveCase(false)}
                 disabled={saving}
                 className="w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-800 font-bold py-3 rounded-xl transition"
-              >
-                Save Only
-              </button>
+              >{t('Save Only')}</button>
             </div>
           </div>
         </div>

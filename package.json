@@ -8,7 +8,8 @@
     "start": "next start",
     "cf:build": "opennextjs-cloudflare build",
     "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "check:i18n": "node scripts/check-translations.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.544.0",

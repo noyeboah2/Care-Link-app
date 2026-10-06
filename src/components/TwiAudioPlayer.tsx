@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Volume2 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 interface TwiAudioPlayerProps {
   audioUrl: string;
@@ -8,6 +9,7 @@ interface TwiAudioPlayerProps {
 }
 
 export const TwiAudioPlayer: React.FC<TwiAudioPlayerProps> = ({ audioUrl, textEnglish, textTwi }) => {
+  const { t } = useI18n();
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -74,14 +76,10 @@ export const TwiAudioPlayer: React.FC<TwiAudioPlayerProps> = ({ audioUrl, textEn
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Volume2 className="w-6 h-6 text-emerald-400 animate-pulse" />
-          <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-            Twi Care Guidance (Mmoa Akwankyerɛ)
-          </span>
+          <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">{t('Twi Care Guidance (Mmoa Akwankyerɛ)')}</span>
         </div>
         {isSynthesized && (
-          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">
-            Synthesized TTS
-          </span>
+          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">{t('Synthesized TTS')}</span>
         )}
       </div>
 
@@ -111,7 +109,7 @@ export const TwiAudioPlayer: React.FC<TwiAudioPlayerProps> = ({ audioUrl, textEn
         <button
           onClick={resetAudio}
           className="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition active:scale-95"
-          aria-label="Restart Audio"
+          aria-label={t('Restart Audio')}
         >
           <RotateCcw className="w-5 h-5" />
         </button>
@@ -119,7 +117,7 @@ export const TwiAudioPlayer: React.FC<TwiAudioPlayerProps> = ({ audioUrl, textEn
         <button
           onClick={togglePlay}
           className="w-16 h-16 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-600/30 active:scale-90 transition transform"
-          aria-label={isPlaying ? 'Pause' : 'Play'}
+          aria-label={isPlaying ? t('Pause') : t('Play')}
         >
           {isPlaying ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current ml-1" />}
         </button>

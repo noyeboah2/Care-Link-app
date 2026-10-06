@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Loader2 } from 'lucide-react';
+import { LanguageSwitch, useI18n } from '@/lib/i18n';
+import { msg } from '@/lib/msg';
 
 const inputCls =
   'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 focus:outline-none';
@@ -9,6 +11,7 @@ function Shell({ title, subtitle, children }: { title: string; subtitle?: string
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-5">
+        <div className="flex justify-end"><LanguageSwitch /></div>
         <div className="text-center space-y-1">
           <Shield className="w-10 h-10 text-emerald-700 mx-auto" />
           <h1 className="text-xl font-black text-slate-900">{title}</h1>
@@ -29,16 +32,17 @@ async function postJson(url: string, body: unknown) {
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error('No internet connection. Please connect and try again.');
+    throw new Error(msg('No internet connection. Please connect and try again.'));
   }
   const data = (await res.json()) as { success: boolean; error?: string };
-  if (!res.ok || !data.success) throw new Error(data.error || 'Something went wrong');
+  if (!res.ok || !data.success) throw new Error(data.error || msg('Something went wrong'));
   return data;
 }
 
 function ErrorBox({ message }: { message: string }) {
+  const { t } = useI18n();
   if (!message) return null;
-  return <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{message}</p>;
+  return <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{t(message)}</p>;
 }
 
 function SubmitButton({ busy, children }: { busy: boolean; children: React.ReactNode }) {
@@ -55,6 +59,7 @@ function SubmitButton({ busy, children }: { busy: boolean; children: React.React
 }
 
 export function LoginScreen({ onDone }: { onDone: () => void }) {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -68,32 +73,33 @@ export function LoginScreen({ onDone }: { onDone: () => void }) {
       await postJson('/api/auth/login', { email, password });
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not sign in');
+      setError(err instanceof Error ? err.message : msg('Could not sign in'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Shell title="CareLink SCD Ghana" subtitle="Sign in to continue">
+    <Shell title={t('CareLink SCD Ghana')} subtitle={t('Sign in to continue')}>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className={labelCls}>Email</label>
+          <label className={labelCls}>{t('Email')}</label>
           <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Password</label>
+          <label className={labelCls}>{t('Password')}</label>
           <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} />
         </div>
         <ErrorBox message={error} />
-        <SubmitButton busy={busy}>Sign in</SubmitButton>
-        <p className="text-xs text-slate-500 text-center">No account? Ask your administrator to add you.</p>
+        <SubmitButton busy={busy}>{t('Sign in')}</SubmitButton>
+        <p className="text-xs text-slate-500 text-center">{t('No account? Ask your administrator to add you.')}</p>
       </form>
     </Shell>
   );
 }
 
 export function SetupScreen({ setupEnabled, onDone }: { setupEnabled: boolean; onDone: () => void }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({ name: '', email: '', password: '', setupCode: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -113,37 +119,36 @@ export function SetupScreen({ setupEnabled, onDone }: { setupEnabled: boolean; o
   };
 
   return (
-    <Shell title="Set up CareLink" subtitle="Create the first administrator account">
+    <Shell title={t('Set up CareLink')} subtitle={t('Create the first administrator account')}>
       {!setupEnabled && (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-          Setup is locked because no setup code has been configured yet. Open <b>/api/auth/me</b> on this site to see why, or ask the developer.
-        </p>
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">Setup is locked because no setup code has been configured yet. Open <b>/api/auth/me</b> on this site to see why, or ask the developer.</p>
       )}
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className={labelCls}>Your full name</label>
+          <label className={labelCls}>{t('Your full name')}</label>
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Email</label>
+          <label className={labelCls}>{t('Email')}</label>
           <input type="email" autoComplete="username" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Password (at least 8 characters)</label>
+          <label className={labelCls}>{t('Password (at least 8 characters)')}</label>
           <input type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Setup code</label>
+          <label className={labelCls}>{t('Setup code')}</label>
           <input type="password" value={form.setupCode} onChange={(e) => setForm({ ...form, setupCode: e.target.value })} className={inputCls} />
         </div>
         <ErrorBox message={error} />
-        <SubmitButton busy={busy}>Create administrator</SubmitButton>
+        <SubmitButton busy={busy}>{t('Create administrator')}</SubmitButton>
       </form>
     </Shell>
   );
 }
 
 export function ChangePasswordScreen({ onDone, onSignOut }: { onDone: () => void; onSignOut: () => void }) {
+  const { t } = useI18n();
   const [currentPassword, setCurrent] = useState('');
   const [newPassword, setNew] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -153,7 +158,7 @@ export function ChangePasswordScreen({ onDone, onSignOut }: { onDone: () => void
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirm) {
-      setError('The new passwords do not match');
+      setError(msg('The new passwords do not match'));
       return;
     }
     setBusy(true);
@@ -162,32 +167,30 @@ export function ChangePasswordScreen({ onDone, onSignOut }: { onDone: () => void
       await postJson('/api/auth/password', { currentPassword, newPassword });
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not change the password');
+      setError(err instanceof Error ? err.message : msg('Could not change the password'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Shell title="Choose a new password" subtitle="Your administrator gave you a temporary password. Please replace it.">
+    <Shell title={t('Choose a new password')} subtitle={t('Your administrator gave you a temporary password. Please replace it.')}>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className={labelCls}>Temporary password</label>
+          <label className={labelCls}>{t('Temporary password')}</label>
           <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>New password (at least 8 characters)</label>
+          <label className={labelCls}>{t('New password (at least 8 characters)')}</label>
           <input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNew(e.target.value)} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Confirm new password</label>
+          <label className={labelCls}>{t('Confirm new password')}</label>
           <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputCls} />
         </div>
         <ErrorBox message={error} />
-        <SubmitButton busy={busy}>Save new password</SubmitButton>
-        <button type="button" onClick={onSignOut} className="w-full text-sm text-slate-500 underline">
-          Sign out
-        </button>
+        <SubmitButton busy={busy}>{t('Save new password')}</SubmitButton>
+        <button type="button" onClick={onSignOut} className="w-full text-sm text-slate-500 underline">{t('Sign out')}</button>
       </form>
     </Shell>
   );

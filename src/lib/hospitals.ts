@@ -1,3 +1,5 @@
+import { msg } from '@/lib/msg';
+
 // Referral hospitals and the locations (areas) a child can live in.
 // Names, locations and phone numbers come from the project's approved hospital list.
 // Which hospital handles which level of care should be confirmed by a clinician.
@@ -52,7 +54,8 @@ export const areaLabel = (id: string | null | undefined) => AREAS.find((a) => a.
 
 export interface Referral {
   primary: Hospital;
-  reason: string;
+  reason: string; // English text, translated by the screen
+  reasonVars?: Record<string, string>;
   alternatives: Hospital[];
 }
 
@@ -60,14 +63,12 @@ export interface Referral {
 export function referralFor(areaId: string | null | undefined): Referral {
   const area = AREAS.find((a) => a.id === areaId);
   const primary = hospitalById(area ? area.hospitalId : 'kcscd');
-  const reason = area && !area.id.startsWith('other')
-    ? `Serves ${area.label}`
-    : primary.specialist
-    ? 'Dedicated sickle cell centre'
-    : 'Recommended';
+  const named = !!area && !area.id.startsWith('other');
+  const reason = named ? msg('Serves {area}') : primary.specialist ? msg('Dedicated sickle cell centre') : msg('Recommended');
+  const reasonVars = named && area ? { area: area.label } : undefined;
   const order = ['kcscd', 'kath', 'asokwa', 'knust'];
   const alternatives = order.filter((id) => id !== primary.id).slice(0, 2).map(hospitalById);
-  return { primary, reason, alternatives };
+  return { primary, reason, reasonVars, alternatives };
 }
 
 // ---- helpers for calling and maps ----

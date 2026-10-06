@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import { RegisterSW } from '@/components/RegisterSW';
+import { I18nProvider } from '@/lib/i18n';
 
 export const metadata: Metadata = {
   title: 'CareLink SCD Ghana',
@@ -25,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
+        <I18nProvider>{children}</I18nProvider>
         <RegisterSW />
       </body>
     </html>

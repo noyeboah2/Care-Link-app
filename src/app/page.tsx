@@ -12,6 +12,8 @@ import { SmsPanel } from '@/components/SmsPanel';
 import { SecurityPanel } from '@/components/SecurityPanel';
 import { clearCachedCases, getQueue } from '@/lib/offline';
 import { useOnline } from '@/lib/useOffline';
+import { LanguageSwitch, useI18n } from '@/lib/i18n';
+import { msg } from '@/lib/msg';
 
 type Role = 'ADMIN' | 'SUPERVISOR' | 'WORKER';
 interface User {
@@ -29,7 +31,7 @@ type AuthState =
   | { status: 'signedIn'; user: User };
 
 type Tab = 'worker' | 'supervisor' | 'screening' | 'hospitals' | 'sms' | 'security' | 'users';
-const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', SUPERVISOR: 'Supervisor', WORKER: 'Health worker' };
+const ROLE_LABEL: Record<Role, string> = { ADMIN: msg('Admin'), SUPERVISOR: msg('Supervisor'), WORKER: msg('Health worker') };
 
 // Remembered on the phone so a signed-in worker can still open the app with no signal.
 const CACHED_USER = 'cl_user';
@@ -47,6 +49,7 @@ function readCachedUser(): User | null {
 }
 
 export default function Home() {
+  const { t, draft } = useI18n();
   const online = useOnline();
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const [activeTab, setActiveTab] = useState<Tab>('worker');
@@ -74,7 +77,7 @@ export default function Home() {
         needsSetup?: boolean;
         setupEnabled?: boolean;
       };
-      if (!res.ok || !data.success) throw new Error('Could not check sign-in');
+      if (!res.ok || !data.success) throw new Error(msg('Could not check sign-in'));
       if (data.user) {
         localStorage.setItem(CACHED_USER, JSON.stringify(data.user));
         setAuth({ status: 'signedIn', user: data.user });
@@ -87,7 +90,7 @@ export default function Home() {
       // No signal: let a worker who was already signed in keep working.
       const cached = readCachedUser();
       if (cached) setAuth({ status: 'signedIn', user: cached });
-      else setAuth({ status: 'error', message: 'No internet connection. You need to be online to sign in.' });
+      else setAuth({ status: 'error', message: msg('No internet connection. You need to be online to sign in.') });
     }
   }, []);
 
@@ -106,7 +109,11 @@ export default function Home() {
     const uid = auth.status === 'signedIn' ? auth.user.id : null;
     if (uid) {
       const waiting = (await getQueue(uid).catch(() => [])).length;
-      if (waiting > 0 && !window.confirm(`You have ${waiting} item${waiting === 1 ? '' : 's'} not uploaded yet. They stay safely on this phone until you sign in again. Sign out anyway?`)) return;
+      if (waiting > 0 && !window.confirm(
+        waiting === 1
+          ? t('You have 1 item not uploaded yet. It stays safely on this phone until you sign in again. Sign out anyway?')
+          : t('You have {n} items not uploaded yet. They stay safely on this phone until you sign in again. Sign out anyway?', { n: waiting }),
+      )) return;
     }
     let ok = false;
     try {
@@ -139,10 +146,8 @@ export default function Home() {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 text-center space-y-3 max-w-sm">
-          <p className="text-sm text-slate-700">{auth.message}</p>
-          <button onClick={() => { setAuth({ status: 'loading' }); void refreshAuth(); }} className="bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl">
-            Try again
-          </button>
+          <p className="text-sm text-slate-700">{t(auth.message)}</p>
+          <button onClick={() => { setAuth({ status: 'loading' }); void refreshAuth(); }} className="bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl">{t('Try again')}</button>
         </div>
       </main>
     );
@@ -155,9 +160,9 @@ export default function Home() {
 
   const canSeeAll = user.role === 'ADMIN' || user.role === 'SUPERVISOR';
   const tabs: Array<{ id: Tab; label: string }> = [
-    { id: 'worker', label: 'Worker Dashboard' },
-    { id: 'screening', label: 'Screening Wizard' },
-    { id: 'hospitals', label: 'Hospitals' },
+    { id: 'worker', label: msg('Worker Dashboard') },
+    { id: 'screening', label: msg('Screening Wizard') },
+    { id: 'hospitals', label: msg('Hospitals') },
     ...(canSeeAll ? [{ id: 'supervisor' as Tab, label: 'Supervisor Portal' }] : []),
     ...(canSeeAll ? [{ id: 'sms' as Tab, label: 'SMS' }] : []),
     ...(user.role === 'ADMIN' ? [{ id: 'security' as Tab, label: 'Security' }, { id: 'users' as Tab, label: 'Team' }] : []),
@@ -168,35 +173,34 @@ export default function Home() {
       <header className="bg-emerald-700 text-white shadow-md print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
-            <div className="bg-white text-emerald-700 font-bold text-xl px-2.5 py-1 rounded-md shadow-sm">CareLink</div>
-            <span className="text-emerald-100 font-medium text-sm hidden lg:inline">SCD Screening & Management Platform (Ghana)</span>
+            <div className="bg-white text-emerald-700 font-bold text-xl px-2.5 py-1 rounded-md shadow-sm">{t('CareLink')}</div>
+            <span className="text-emerald-100 font-medium text-sm hidden lg:inline">{t('SCD Screening & Management Platform (Ghana)')}</span>
           </div>
 
           <nav className="flex flex-wrap gap-2">
-            {tabs.map((t) => (
+            {tabs.map((tab) => (
               <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                  activeTab === t.id ? 'bg-emerald-900 text-white' : 'hover:bg-emerald-600 text-emerald-100'
+                  activeTab === tab.id ? 'bg-emerald-900 text-white' : 'hover:bg-emerald-600 text-emerald-100'
                 }`}
               >
-                {t.label}
+                {t(tab.label)}
               </button>
             ))}
           </nav>
 
           <div className="flex items-center space-x-3 text-sm">
+            <LanguageSwitch dark />
             {!online && (
-              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-400 text-amber-950">Offline</span>
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-400 text-amber-950">{t('Offline')}</span>
             )}
             <div className="text-right leading-tight">
               <p className="font-semibold">{user.name}</p>
-              <p className="text-xs text-emerald-100">{ROLE_LABEL[user.role]}</p>
+              <p className="text-xs text-emerald-100">{t(ROLE_LABEL[user.role])}</p>
             </div>
-            <button onClick={signOut} className="bg-emerald-900 hover:bg-emerald-950 px-3 py-1.5 rounded-md font-medium">
-              Sign out
-            </button>
+            <button onClick={signOut} className="bg-emerald-900 hover:bg-emerald-950 px-3 py-1.5 rounded-md font-medium">{t('Sign out')}</button>
           </div>
         </div>
       </header>
@@ -221,6 +225,11 @@ export default function Home() {
         {activeTab === 'security' && user.role === 'ADMIN' && <SecurityPanel />}
         {activeTab === 'users' && user.role === 'ADMIN' && <UsersPanel currentUserId={user.id} />}
       </div>
+      {draft && (
+        <p className="print:hidden text-center text-[11px] text-slate-500 px-4 pb-4">
+          {t('Twi translation is a draft and may contain mistakes. Please tell your supervisor about any wording that is wrong.')}
+        </p>
+      )}
     </main>
   );
 }
