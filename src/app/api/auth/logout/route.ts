@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { actorOf, logAudit } from '@/lib/audit';
 import { clearSessionCookie, getSessionUser, sameOrigin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,10 @@ export async function POST(request: Request) {
     if (!sameOrigin(request)) return NextResponse.json({ success: false, error: 'Request blocked' }, { status: 403 });
     const db = await getDb();
     const user = await getSessionUser(request, db);
-    if (user) await db.prepare('DELETE FROM sessions WHERE id = ?').bind(user.sessionId).run();
+    if (user) {
+      await db.prepare('DELETE FROM sessions WHERE id = ?').bind(user.sessionId).run();
+      await logAudit(db, request, actorOf(user), 'LOGOUT', { entityType: 'user', entityId: user.id, entityLabel: user.name });
+    }
     const response = NextResponse.json({ success: true });
     clearSessionCookie(response, request);
     return response;

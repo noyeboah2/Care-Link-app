@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { actorOf, logAudit } from '@/lib/audit';
 import { requireUser } from '@/lib/auth';
 import { runReminders } from '@/lib/reminders';
 
@@ -11,6 +12,7 @@ export async function POST(request: Request) {
     if ('error' in auth) return auth.error;
     const body = (await request.json().catch(() => ({}))) as { dryRun?: unknown };
     const summary = await runReminders(auth.db, { dryRun: body.dryRun !== false });
+    if (!summary.dryRun && !summary.skipped) await logAudit(auth.db, request, actorOf(auth.user), 'SMS_RUN_MANUAL', { entityType: 'system', details: { sent: summary.sent, failed: summary.failed, queued: summary.queued } });
     return NextResponse.json({ success: true, summary });
   } catch (err) {
     console.error('POST /api/sms/run failed', err);

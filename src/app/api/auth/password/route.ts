@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { actorOf, logAudit } from '@/lib/audit';
 import { hashPassword, requireUser, validPassword, verifyPassword, MIN_PASSWORD } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
     const hash = await hashPassword(body.newPassword);
     await db.prepare('UPDATE users SET password_hash = ?, must_change = 0 WHERE id = ?').bind(hash, user.id).run();
     await db.prepare('DELETE FROM sessions WHERE user_id = ? AND id <> ?').bind(user.id, user.sessionId).run();
+    await logAudit(db, request, actorOf(user), 'PASSWORD_CHANGED', { entityType: 'user', entityId: user.id, entityLabel: user.name });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('POST /api/auth/password failed', err);

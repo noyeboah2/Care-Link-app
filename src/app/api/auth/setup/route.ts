@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { actorOf, logAudit } from '@/lib/audit';
 import { getDb, getSetupInfo } from '@/lib/db';
 import { createSession, hashPassword, normalizeEmail, sameOrigin, setSessionCookie, validPassword, MIN_PASSWORD } from '@/lib/auth';
 
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
     if (!result.meta?.changes) return fail('Setup is already finished', 409);
 
     await db.prepare("DELETE FROM settings WHERE key = 'setup_code'").run();
+    await logAudit(db, request, { id, name, role: 'ADMIN' }, 'SETUP_COMPLETED', { entityType: 'user', entityId: id, entityLabel: name, details: { email }, withIp: true });
     const token = await createSession(db, id);
     const response = NextResponse.json({ success: true });
     setSessionCookie(response, request, token);

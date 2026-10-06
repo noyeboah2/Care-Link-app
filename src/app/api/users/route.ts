@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { actorOf, logAudit } from '@/lib/audit';
 import { hashPassword, normalizeEmail, requireUser, validPassword, ROLES, MIN_PASSWORD, type Role } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       if (String(err).includes('UNIQUE')) return fail('A user with that email already exists', 409);
       throw err;
     }
+    await logAudit(auth.db, request, actorOf(auth.user), 'USER_CREATED', { entityType: 'user', entityId: id, entityLabel: name, details: { email, role } });
     return NextResponse.json({ success: true, id });
   } catch (err) {
     console.error('POST /api/users failed', err);

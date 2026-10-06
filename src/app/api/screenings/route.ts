@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { canSeeAll, requireUser } from '@/lib/auth';
+import { actorOf, logAudit } from '@/lib/audit';
 import { SCREENING_QUESTIONS, scoreAnswers } from '@/lib/risk';
 import { isUuid } from '@/lib/validation';
 
@@ -26,9 +27,9 @@ export async function POST(request: Request) {
     const { score, riskLevel } = scoreAnswers(answers);
 
     const child = await db
-      .prepare('SELECT id, created_by FROM children WHERE id = ?')
+      .prepare('SELECT id, full_name, created_by FROM children WHERE id = ?')
       .bind(body.childId)
-      .first<{ id: string; created_by: string | null }>();
+      .first<{ id: string; full_name: string; created_by: string | null }>();
     if (!child || (!canSeeAll(user.role) && child.created_by !== user.id)) {
       return NextResponse.json({ success: false, error: 'Child not found' }, { status: 404 });
     }
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       .bind(id, body.childId, JSON.stringify(answers), score, riskLevel, user.id, createdAt)
       .run();
 
+    await logAudit(db, request, actorOf(user), 'SCREENING_RECORDED', { entityType: 'case', entityId: body.childId, entityLabel: child.full_name, details: { risk: riskLevel, score, recordedAt: createdAt } });
     return NextResponse.json({ success: true, data: { id, score, riskLevel } });
   } catch (err) {
     console.error('POST /api/screenings failed', err);

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { actorOf, logAudit } from '@/lib/audit';
 import { requireUser } from '@/lib/auth';
 import { getSmsConfig, sendSms } from '@/lib/sms';
 import { normalizePhone } from '@/lib/validation';
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
 
     const r = await sendSms(cfg, to, 'CareLink test message: SMS reminders are set up correctly.');
     if (!r.ok) return fail(r.error ?? 'The message was not accepted', 502);
+    await logAudit(auth.db, request, actorOf(auth.user), 'SMS_TEST_SENT', { entityType: 'system', details: { to: to.slice(0, 7) + '••••' + to.slice(-3) } });
     return NextResponse.json({ success: true, status: r.providerStatus, cost: r.cost, messageId: r.providerId });
   } catch (err) {
     console.error('POST /api/sms/test failed', err);

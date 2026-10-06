@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { actorOf, logAudit } from '@/lib/audit';
 import { createSession, normalizeEmail, sameOrigin, setSessionCookie, verifyPassword } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -23,21 +24,24 @@ export async function POST(request: Request) {
       .bind(email, since)
       .first<{ n: number }>();
     if ((fails?.n ?? 0) >= MAX_FAILS) {
+      await logAudit(db, request, null, 'LOGIN_FAILED', { details: { email, reason: 'locked' }, withIp: true });
       return fail('Too many failed attempts. Please wait 15 minutes and try again.', 429);
     }
 
     const user = await db
-      .prepare('SELECT id, password_hash FROM users WHERE email = ? AND active = 1')
+      .prepare('SELECT id, name, role, password_hash FROM users WHERE email = ? AND active = 1')
       .bind(email)
-      .first<{ id: string; password_hash: string }>();
+      .first<{ id: string; name: string; role: string; password_hash: string }>();
     const ok = await verifyPassword(password, user?.password_hash ?? null);
 
     if (!user || !ok) {
       await db.prepare('INSERT INTO login_attempts (email, at) VALUES (?, ?)').bind(email, Date.now()).run();
+      await logAudit(db, request, null, 'LOGIN_FAILED', { details: { email }, withIp: true });
       return fail('Incorrect email or password', 401);
     }
 
     await db.prepare('DELETE FROM login_attempts WHERE email = ?').bind(email).run();
+    await logAudit(db, request, actorOf(user), 'LOGIN', { entityType: 'user', entityId: user.id, entityLabel: user.name, withIp: true });
     const token = await createSession(db, user.id);
     const response = NextResponse.json({ success: true });
     setSessionCookie(response, request, token);

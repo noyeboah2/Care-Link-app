@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { canSeeAll, requireUser } from '@/lib/auth';
+import { actorOf, logAudit } from '@/lib/audit';
 import { AREA_IDS } from '@/lib/hospitals';
 import { isUuid } from '@/lib/validation';
 
@@ -110,6 +111,7 @@ export async function POST(request: Request) {
       .bind(id, fullName, age, gender, phone, area, user.id, smsConsent, smsConsent, smsConsent, user.id)
       .run();
 
+    await logAudit(db, request, actorOf(user), 'CASE_CREATED', { entityType: 'case', entityId: id, entityLabel: fullName, details: { area, smsConsent: smsConsent === 1 } });
     return NextResponse.json({
       success: true,
       child: { id, fullName, age, gender, caregiverPhone: phone, followUpDate: null, area, lastRisk: 'PENDING', followUpStatus: 'PENDING' },

@@ -23,6 +23,7 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
   const [form, setForm] = useState({ name: '', email: '', role: 'WORKER' as Role, password: '' });
   const [busy, setBusy] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [alsoAudit, setAlsoAudit] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -82,7 +83,7 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
 
   const clearCases = async () => {
     if (!window.confirm('This permanently deletes ALL children and screenings. Users are kept. Continue?')) return;
-    const ok = await call('/api/admin/clear-cases', 'POST', { confirm: confirmText }, 'All cases and screenings were deleted.');
+    const ok = await call('/api/admin/clear-cases', 'POST', { confirm: confirmText, alsoAuditLog: alsoAudit }, alsoAudit ? 'All cases, screenings and the audit log were cleared.' : 'All cases and screenings were deleted.');
     if (ok) setConfirmText('');
   };
 
@@ -176,6 +177,10 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
         <p className="text-sm text-slate-600">
           Deletes every child and screening so you can start fresh before real use. Team accounts are not affected. This cannot be undone.
         </p>
+        <label className="flex items-start space-x-2 text-sm text-slate-700">
+          <input type="checkbox" checked={alsoAudit} onChange={(e) => setAlsoAudit(e.target.checked)} className="mt-1 accent-red-600" />
+          <span>Also clear the audit log. <b>Only before real use.</b> Once real patients are entered, the audit log must be kept.</span>
+        </label>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
             value={confirmText}

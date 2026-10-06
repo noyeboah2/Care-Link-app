@@ -72,6 +72,22 @@ const SCHEMA = [
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
+  `CREATE TABLE IF NOT EXISTS audit_log (
+    id TEXT PRIMARY KEY,
+    at TEXT NOT NULL DEFAULT (datetime('now')),
+    user_id TEXT,
+    user_name TEXT,
+    user_role TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id TEXT,
+    entity_label TEXT,
+    details TEXT,
+    ip TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at)`,
+  `CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_unique ON sms_log(child_id, kind, for_date)`,
   `CREATE INDEX IF NOT EXISTS idx_sms_provider ON sms_log(provider_id)`,
 ];

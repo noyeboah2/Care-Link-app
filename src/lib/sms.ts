@@ -26,7 +26,8 @@ export async function getSmsConfig(db: Db): Promise<SmsConfig> {
   const envUser = str(e.AT_USERNAME);
   const envKey = str(e.AT_API_KEY);
   const fromEnv = envUser !== '' && envKey !== '';
-  const username = fromEnv ? envUser : str(s.sms_at_username);
+  const rawUser = fromEnv ? envUser : str(s.sms_at_username);
+  const username = rawUser.toLowerCase() === 'sandbox' ? 'sandbox' : rawUser; // "Sandbox" works too
   const apiKey = fromEnv ? envKey : str(s.sms_at_api_key);
   const senderId = str(e.AT_SENDER_ID) || str(s.sms_sender_id);
   const override = str(e.AT_BASE_URL) || str(s.sms_base_url); // used for testing only
@@ -76,7 +77,14 @@ export async function sendSms(cfg: SmsConfig, to: string, message: string): Prom
       json = null;
     }
     if (!json) {
-      return { ok: false, retryable: res.status >= 500, error: `Provider replied HTTP ${res.status}${res.status === 401 ? ' (check the API key and username)' : ''}` };
+      const server = cfg.baseUrl.includes('sandbox') ? 'SANDBOX' : 'LIVE';
+      return {
+        ok: false,
+        retryable: res.status >= 500,
+        error: res.status === 401
+          ? `Africa's Talking rejected the login (HTTP 401). Tried the ${server} server with username "${cfg.username}". The API key must come from the same app as the username (sandbox key with username "sandbox", live key with your live app name).`
+          : `Provider replied HTTP ${res.status}`,
+      };
     }
     const rec = json.SMSMessageData?.Recipients?.[0];
     if (rec && ACCEPTED.includes(Number(rec.statusCode))) {

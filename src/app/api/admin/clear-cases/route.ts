@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { actorOf, logAudit } from '@/lib/audit';
 import { requireUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -8,13 +9,19 @@ export async function POST(request: Request) {
   try {
     const auth = await requireUser(request, { roles: ['ADMIN'] });
     if ('error' in auth) return auth.error;
-    const body = (await request.json()) as { confirm?: unknown };
+    const body = (await request.json()) as { confirm?: unknown; alsoAuditLog?: unknown };
     if (body.confirm !== 'DELETE ALL CASES') {
       return NextResponse.json({ success: false, error: 'Type DELETE ALL CASES to confirm' }, { status: 400 });
     }
     const { db } = auth;
     const before = await db.prepare('SELECT COUNT(*) AS n FROM children').first<{ n: number }>();
     await db.batch([db.prepare('DELETE FROM screenings'), db.prepare('DELETE FROM sms_log'), db.prepare('DELETE FROM children')]);
+    await logAudit(db, request, actorOf(auth.user), 'CASES_CLEARED', { entityType: 'system', details: { deleted: before?.n ?? 0 } });
+    if (body.alsoAuditLog === true) {
+      // Only meant for wiping practice data before real use. The reset itself is recorded first thing in the new log.
+      await db.prepare('DELETE FROM audit_log').run();
+      await logAudit(db, request, actorOf(auth.user), 'AUDIT_RESET', { entityType: 'system', details: { casesDeleted: before?.n ?? 0 } });
+    }
     return NextResponse.json({ success: true, deleted: before?.n ?? 0 });
   } catch (err) {
     console.error('POST /api/admin/clear-cases failed', err);
