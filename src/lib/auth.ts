@@ -69,7 +69,7 @@ export function normalizeEmail(email: unknown): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 200 ? e : null;
 }
 
-async function sha256Hex(text: string) {
+export async function sha256Hex(text: string) {
   return toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(text))));
 }
 

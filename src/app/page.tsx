@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { HealthWorkerDashboard } from '@/components/HealthWorkerDashboard';
 import { SupervisorDashboard } from '@/components/SupervisorDashboard';
 import { ScdScreeningWizard } from '@/components/ScdScreeningWizard';
-import { ChangePasswordScreen, LoginScreen, SetupScreen } from '@/components/AuthScreens';
+import { ChangePasswordScreen, ForgotPasswordScreen, LoginScreen, SetupScreen } from '@/components/AuthScreens';
 import { UsersPanel } from '@/components/UsersPanel';
 import { HospitalsDirectory } from '@/components/HospitalsDirectory';
 import { SmsPanel } from '@/components/SmsPanel';
@@ -52,6 +52,8 @@ export default function Home() {
   const { t, draft } = useI18n();
   const online = useOnline();
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
+  const [recovering, setRecovering] = useState(false);
+  const [signInNotice, setSignInNotice] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('worker');
   const [screeningChild, setScreeningChild] = useState<{ id: string | null; name: string; area?: string | null }>({ id: null, name: 'New Child', area: null });
 
@@ -153,7 +155,16 @@ export default function Home() {
     );
   }
   if (auth.status === 'setup') return <SetupScreen setupEnabled={auth.setupEnabled} onDone={refreshAuth} />;
-  if (auth.status === 'signedOut') return <LoginScreen onDone={refreshAuth} />;
+  if (auth.status === 'signedOut') {
+    return recovering ? (
+      <ForgotPasswordScreen
+        onBack={() => setRecovering(false)}
+        onDone={() => { setRecovering(false); setSignInNotice(msg('Your password was changed. Sign in with your new password.')); }}
+      />
+    ) : (
+      <LoginScreen onDone={refreshAuth} onForgot={() => { setSignInNotice(''); setRecovering(true); }} notice={signInNotice} />
+    );
+  }
 
   const user = auth.user;
   if (user.mustChange) return <ChangePasswordScreen onDone={refreshAuth} onSignOut={signOut} />;

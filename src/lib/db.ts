@@ -88,6 +88,34 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at)`,
   `CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_id)`,
   `CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id)`,
+  `CREATE TABLE IF NOT EXISTS password_resets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id)`,
+  `CREATE TABLE IF NOT EXISTS recovery_requests (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'OPEN',
+    sms_sent INTEGER NOT NULL DEFAULT 0,
+    requested_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_recovery_user ON recovery_requests(user_id, status)`,
+  `CREATE TABLE IF NOT EXISTS recovery_throttle (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL,
+    ip TEXT,
+    at INTEGER NOT NULL,
+    sent INTEGER NOT NULL DEFAULT 0
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_throttle_email ON recovery_throttle(email, at)`,
+  `CREATE INDEX IF NOT EXISTS idx_throttle_ip ON recovery_throttle(ip, at)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_unique ON sms_log(child_id, kind, for_date)`,
   `CREATE INDEX IF NOT EXISTS idx_sms_provider ON sms_log(provider_id)`,
 ];
@@ -96,6 +124,7 @@ const SCHEMA = [
 const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ['children', 'created_by', 'created_by TEXT'],
   ['screenings', 'recorded_by', 'recorded_by TEXT'],
+  ['users', 'phone', 'phone TEXT'],
   ['children', 'area', 'area TEXT'],
   ['children', 'sms_consent', 'sms_consent INTEGER NOT NULL DEFAULT 0'],
   ['children', 'sms_consent_at', 'sms_consent_at TEXT'],

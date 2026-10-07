@@ -58,7 +58,7 @@ function SubmitButton({ busy, children }: { busy: boolean; children: React.React
   );
 }
 
-export function LoginScreen({ onDone }: { onDone: () => void }) {
+export function LoginScreen({ onDone, onForgot, notice }: { onDone: () => void; onForgot?: () => void; notice?: string }) {
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,6 +82,7 @@ export function LoginScreen({ onDone }: { onDone: () => void }) {
   return (
     <Shell title={t('CareLink SCD Ghana')} subtitle={t('Sign in to continue')}>
       <form onSubmit={submit} className="space-y-4">
+        {notice && <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">{t(notice)}</p>}
         <div>
           <label className={labelCls}>{t('Email')}</label>
           <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
@@ -92,6 +93,11 @@ export function LoginScreen({ onDone }: { onDone: () => void }) {
         </div>
         <ErrorBox message={error} />
         <SubmitButton busy={busy}>{t('Sign in')}</SubmitButton>
+        {onForgot && (
+          <button type="button" onClick={onForgot} className="w-full text-sm font-semibold text-emerald-800 underline">
+            {t('Forgot password?')}
+          </button>
+        )}
         <p className="text-xs text-slate-500 text-center">{t('No account? Ask your administrator to add you.')}</p>
       </form>
     </Shell>
@@ -192,6 +198,102 @@ export function ChangePasswordScreen({ onDone, onSignOut }: { onDone: () => void
         <SubmitButton busy={busy}>{t('Save new password')}</SubmitButton>
         <button type="button" onClick={onSignOut} className="w-full text-sm text-slate-500 underline">{t('Sign out')}</button>
       </form>
+    </Shell>
+  );
+}
+
+// "Forgot password": a 6-digit code is texted to the phone saved on the account, then a new password is chosen.
+export function ForgotPasswordScreen({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
+  const { t } = useI18n();
+  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const requestCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await postJson('/api/auth/forgot', { email });
+      setStep('code');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : msg('Something went wrong'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetNow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pw !== pw2) {
+      setError(msg('The new passwords do not match'));
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await postJson('/api/auth/reset', { email, code, newPassword: pw });
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : msg('Something went wrong'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Shell
+      title={t('Reset your password')}
+      subtitle={step === 'email'
+        ? t('Enter your email and we will text a 6-digit code to the phone number saved on your account.')
+        : t('If this email has a phone number saved, a code is on its way. If nothing arrives in a few minutes, ask your administrator to reset your password.')}
+    >
+      {step === 'email' ? (
+        <form onSubmit={requestCode} className="space-y-4">
+          <div>
+            <label className={labelCls}>{t('Email')}</label>
+            <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
+          </div>
+          <ErrorBox message={error} />
+          <SubmitButton busy={busy}>{t('Send code')}</SubmitButton>
+          <button type="button" onClick={() => { setError(''); if (email) setStep('code'); else setError(msg('Enter a valid email address')); }} className="w-full text-sm text-slate-600 underline">
+            {t('I already have a code')}
+          </button>
+          <button type="button" onClick={onBack} className="w-full text-sm text-slate-500 underline">{t('Back to sign in')}</button>
+        </form>
+      ) : (
+        <form onSubmit={resetNow} className="space-y-4">
+          <div>
+            <label className={labelCls}>{t('6-digit code')}</label>
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              className={inputCls + ' tracking-widest text-lg'}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>{t('New password (at least 8 characters)')}</label>
+            <input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>{t('Confirm new password')}</label>
+            <input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} className={inputCls} />
+          </div>
+          <ErrorBox message={error} />
+          <SubmitButton busy={busy}>{t('Reset password')}</SubmitButton>
+          <button type="button" onClick={() => { setError(''); setCode(''); setStep('email'); }} className="w-full text-sm text-slate-600 underline">
+            {t('Ask for a new code')}
+          </button>
+          <button type="button" onClick={onBack} className="w-full text-sm text-slate-500 underline">{t('Back to sign in')}</button>
+        </form>
+      )}
     </Shell>
   );
 }

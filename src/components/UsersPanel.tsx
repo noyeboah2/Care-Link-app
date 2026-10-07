@@ -7,9 +7,27 @@ interface UserRow {
   email: string;
   name: string;
   role: Role;
+  phone: string | null;
   active: boolean;
   mustChange: boolean;
 }
+interface RecoveryRequest {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  hasPhone: boolean;
+  smsSent: boolean;
+  requestedAt: string;
+}
+
+// Easy to read aloud: no 0/O or 1/l/I.
+const TEMP_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+const makeTempPassword = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => TEMP_ALPHABET[b % TEMP_ALPHABET.length]).join('');
+const fmtWhen = (sql: string) => {
+  const d = new Date(sql.replace(' ', 'T') + 'Z');
+  return Number.isNaN(d.getTime()) ? sql : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+};
 
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', SUPERVISOR: 'Supervisor', WORKER: 'Health worker' };
 const inputCls =
@@ -20,7 +38,9 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [form, setForm] = useState({ name: '', email: '', role: 'WORKER' as Role, password: '' });
+  const [form, setForm] = useState({ name: '', email: '', role: 'WORKER' as Role, password: '', phone: '' });
+  const [requests, setRequests] = useState<RecoveryRequest[]>([]);
+  const [temp, setTemp] = useState<{ name: string; password: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [alsoAudit, setAlsoAudit] = useState(false);
@@ -33,6 +53,9 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
       const data = (await res.json()) as { success: boolean; users?: UserRow[]; error?: string };
       if (!res.ok || !data.success) throw new Error(data.error || 'Could not load users');
       setUsers(data.users ?? []);
+      const rr = await fetch('/api/recovery-requests', { cache: 'no-store' });
+      const rd = (await rr.json()) as { success: boolean; requests?: RecoveryRequest[] };
+      setRequests(rr.ok && rd.success ? rd.requests ?? [] : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load users');
     } finally {
@@ -66,13 +89,37 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
   const addUser = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await call('/api/users', 'POST', form, `Added ${form.name}. Give them the temporary password; they will choose their own at first sign-in.`);
-    if (ok) setForm({ name: '', email: '', role: 'WORKER', password: '' });
+    if (ok) setForm({ name: '', email: '', role: 'WORKER', password: '', phone: '' });
   };
 
+  // The app makes the temporary password. It is shown once here and is never stored or logged.
   const resetPassword = async (u: UserRow) => {
-    const password = window.prompt(`Enter a temporary password for ${u.name} (at least 8 characters):`);
-    if (!password) return;
-    await call(`/api/users/${u.id}`, 'PATCH', { action: 'resetPassword', password }, `Password reset for ${u.name}. They must choose a new one at next sign-in.`);
+    if (!window.confirm(`Make a new temporary password for ${u.name}? They will be signed out everywhere and must choose their own password at next sign-in.`)) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    setTemp(null);
+    try {
+      const res = await fetch(`/api/users/${u.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'resetPassword', generate: true }) });
+      const data = (await res.json()) as { success: boolean; tempPassword?: string; error?: string };
+      if (!res.ok || !data.success || !data.tempPassword) throw new Error(data.error || 'Could not reset the password');
+      setTemp({ name: u.name, password: data.tempPassword });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reset the password');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const editPhone = async (u: UserRow) => {
+    const input = window.prompt(`Phone number for ${u.name} (used to text a password reset code). Leave empty to remove it:`, u.phone ?? '');
+    if (input === null) return;
+    await call(`/api/users/${u.id}`, 'PATCH', { action: 'setPhone', phone: input }, input.trim() ? `Saved the phone number for ${u.name}.` : `Removed the phone number for ${u.name}.`);
+  };
+
+  const dismissRequest = async (r: RecoveryRequest) => {
+    await call('/api/recovery-requests', 'POST', { id: r.id, action: 'dismiss' }, `Dismissed the request from ${r.name}.`);
   };
 
   const toggleActive = async (u: UserRow) => {
@@ -113,8 +160,17 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
             </select>
           </div>
           <div>
+            <label className="text-xs font-bold text-slate-600">Phone number (to text a password reset code)</label>
+            <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} placeholder="0244123456 (recommended)" />
+          </div>
+          <div>
             <label className="text-xs font-bold text-slate-600">Temporary password (8+ characters)</label>
-            <input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputCls} />
+            <div className="flex gap-2">
+              <input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputCls} />
+              <button type="button" onClick={() => setForm({ ...form, password: makeTempPassword() })} className="mt-1 border border-slate-300 rounded-xl px-3 text-xs font-bold hover:bg-slate-50 whitespace-nowrap">
+                Generate
+              </button>
+            </div>
           </div>
           <div className="sm:col-span-2">
             <button type="submit" disabled={busy} className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-xl transition">
@@ -123,6 +179,42 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
           </div>
         </form>
       </div>
+
+      {temp && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 space-y-2">
+          <p className="text-sm font-bold text-amber-900">Temporary password for {temp.name}</p>
+          <div className="flex items-center gap-2">
+            <code className="text-xl font-black tracking-wider bg-white border border-amber-200 rounded-lg px-3 py-1.5 select-all">{temp.password}</code>
+            <button onClick={() => void navigator.clipboard?.writeText(temp.password)} className="border border-amber-300 rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-amber-100">Copy</button>
+            <button onClick={() => setTemp(null)} className="text-xs font-bold text-amber-900 underline">Hide</button>
+          </div>
+          <p className="text-xs text-amber-900">Give it to {temp.name} in person or by phone call. It is shown only once; they must choose their own password when they sign in.</p>
+        </div>
+      )}
+
+      {requests.length > 0 && (
+        <div className="bg-white rounded-xl shadow-md p-5 space-y-3 border border-amber-300">
+          <h2 className="text-lg font-black text-slate-900">Password reset requests ({requests.length})</h2>
+          <p className="text-xs text-slate-500">These people tapped “Forgot password”. If a text was sent they may not need you. If not, check it is really them (for example by calling them) before resetting.</p>
+          <ul className="divide-y divide-slate-100">
+            {requests.map((r) => (
+              <li key={r.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="text-sm">
+                  <p className="font-bold text-slate-900">{r.name} <span className="font-normal text-slate-400 text-xs">{r.email}</span></p>
+                  <p className="text-xs text-slate-500">
+                    Asked {fmtWhen(r.requestedAt)} ·{' '}
+                    {r.smsSent ? 'a code was texted to them' : r.hasPhone ? 'no text was sent (SMS problem or limit)' : 'no phone number saved, so no text could be sent'}
+                  </p>
+                </div>
+                <div className="flex gap-2 text-xs">
+                  <button onClick={() => { const u = users.find((x) => x.id === r.userId); if (u) void resetPassword(u); }} disabled={busy} className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg px-3 py-1.5">Reset password</button>
+                  <button onClick={() => void dismissRequest(r)} disabled={busy} className="border border-slate-300 rounded-lg px-3 py-1.5 font-semibold hover:bg-slate-50">Dismiss</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {notice && <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">{notice}</p>}
       {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{error}</p>}
@@ -144,7 +236,10 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
                     {!u.active && <span className="ml-2 text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">DEACTIVATED</span>}
                     {u.mustChange && <span className="ml-2 text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">TEMP PASSWORD</span>}
                   </p>
-                  <p className="text-xs text-slate-500">{u.email}</p>
+                  <p className="text-xs text-slate-500">
+                    {u.email} ·{' '}
+                    {u.phone ? u.phone : <span className="font-bold text-amber-700">no phone (cannot use text recovery)</span>}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <select
@@ -157,6 +252,9 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
                     <option value="SUPERVISOR">Supervisor</option>
                     <option value="ADMIN">Admin</option>
                   </select>
+                  <button onClick={() => editPhone(u)} disabled={busy} className="border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 font-semibold">
+                    {u.phone ? 'Edit phone' : 'Add phone'}
+                  </button>
                   <button onClick={() => resetPassword(u)} disabled={busy} className="border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 font-semibold">
                     Reset password
                   </button>

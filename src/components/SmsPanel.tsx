@@ -106,6 +106,9 @@ export const SmsPanel: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) => {
           Every morning the app texts caregivers who agreed to reminders: the day before a follow-up, on the day, and once more if the visit is missed.
           Messages never mention the condition.
         </p>
+        <p className="text-xs text-slate-500 mt-1">
+          The same account also texts password reset codes (“Forgot password”). Those work even while reminders are switched off, cost the same as a reminder, and are limited to 200 a day.
+        </p>
       </div>
 
       {notice && <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">{notice}</p>}
