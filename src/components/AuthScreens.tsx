@@ -4,17 +4,38 @@ import { LanguageSwitch, useI18n } from '@/lib/i18n';
 import { msg } from '@/lib/msg';
 
 const inputCls =
-  'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 focus:outline-none';
+  'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-[#007BA7] focus:outline-none';
 const labelCls = 'text-xs font-bold text-slate-600';
+
+// Cerulean blue, a moderately deep shade (#007BA7). Hover is slightly deeper.
+const CERULEAN = '#007BA7';
+
+// Three layered waves along the bottom of the page. They sit behind the card and never block taps.
+function Waves() {
+  return (
+    <svg
+      className="absolute bottom-0 left-0 w-full h-[30vh] min-h-[150px] max-h-[320px] pointer-events-none z-0"
+      viewBox="0 0 1440 320"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path fill="#4DB8DB" fillOpacity="0.35" d="M0,160 C240,100 480,220 720,170 C960,120 1200,60 1440,130 L1440,320 L0,320 Z" />
+      <path fill="#2494BD" fillOpacity="0.55" d="M0,210 C200,170 420,260 680,225 C940,190 1180,150 1440,205 L1440,320 L0,320 Z" />
+      <path fill={CERULEAN} d="M0,260 C240,230 480,300 760,268 C1040,236 1250,225 1440,262 L1440,320 L0,320 Z" />
+    </svg>
+  );
+}
 
 function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-5">
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 flex items-center justify-center p-4">
+      <Waves />
+      <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-5">
         <div className="flex justify-end"><LanguageSwitch /></div>
         <div className="text-center space-y-1">
-          <Shield className="w-10 h-10 text-emerald-700 mx-auto" />
-          <h1 className="text-xl font-black text-slate-900">{title}</h1>
+          <Shield className="w-10 h-10 text-[#007BA7] mx-auto" />
+          <h1 className="text-xl font-black text-[#007BA7]">{title}</h1>
           {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
         </div>
         {children}
@@ -50,7 +71,7 @@ function SubmitButton({ busy, children }: { busy: boolean; children: React.React
     <button
       type="submit"
       disabled={busy}
-      className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition flex items-center justify-center space-x-2"
+      className="w-full bg-[#007BA7] hover:bg-[#006690] disabled:opacity-60 text-white font-bold py-3 rounded-xl transition flex items-center justify-center space-x-2"
     >
       {busy && <Loader2 className="w-4 h-4 animate-spin" />}
       <span>{children}</span>
@@ -94,7 +115,7 @@ export function LoginScreen({ onDone, onForgot, notice }: { onDone: () => void; 
         <ErrorBox message={error} />
         <SubmitButton busy={busy}>{t('Sign in')}</SubmitButton>
         {onForgot && (
-          <button type="button" onClick={onForgot} className="w-full text-sm font-semibold text-emerald-800 underline">
+          <button type="button" onClick={onForgot} className="w-full text-sm font-semibold text-[#007BA7] underline">
             {t('Forgot password?')}
           </button>
         )}
