@@ -7,3 +7,26 @@ body {
   background-color: #f8fafc;
   color: #0f172a;
 }
+
+/* Flowing waves on the sign-in pages. Each layer drifts sideways at its own speed and slowly rises and sinks.
+   The wave shapes repeat exactly every half-width, so the loop never jumps. */
+@keyframes wave-drift-left {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+@keyframes wave-drift-right {
+  from { transform: translate3d(-50%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes wave-swell {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, 12px, 0); }
+}
+.wave-drift-left { animation: wave-drift-left 20s linear infinite; will-change: transform; }
+.wave-drift-right { animation: wave-drift-right 20s linear infinite; will-change: transform; }
+.wave-swell { animation: wave-swell 7s ease-in-out infinite; will-change: transform; }
+
+/* People who ask their phone for less motion get still waves. */
+@media (prefers-reduced-motion: reduce) {
+  .wave-drift-left, .wave-drift-right, .wave-swell { animation: none; }
+}

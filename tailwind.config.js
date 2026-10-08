@@ -6,7 +6,12 @@ module.exports = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        // Matched to the reference sign-in page after correcting the photo's colour cast.
+        brand: { DEFAULT: '#0051AD', dark: '#003F88' },
+      },
+    },
   },
   plugins: [],
 }

@@ -4,26 +4,43 @@ import { LanguageSwitch, useI18n } from '@/lib/i18n';
 import { msg } from '@/lib/msg';
 
 const inputCls =
-  'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-[#007BA7] focus:outline-none';
+  'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-brand focus:outline-none';
 const labelCls = 'text-xs font-bold text-slate-600';
 
-// Cerulean blue, a moderately deep shade (#007BA7). Hover is slightly deeper.
-const CERULEAN = '#007BA7';
+// Wave shape that repeats exactly every `period`, so a sideways slide loops without a jump.
+function wavePath(period: number, amplitude: number, baseline: number): string {
+  const half = period / 2;
+  let d = `M0,${baseline} Q${period / 4},${baseline - 2 * amplitude} ${half},${baseline}`;
+  for (let x = period; x <= 2880; x += half) d += ` T${x},${baseline}`;
+  return `${d} L2880,320 L0,320 Z`;
+}
 
-// Three layered waves along the bottom of the page. They sit behind the card and never block taps.
+// Three layers from pale to deep blue (the deepest matches the buttons). Different sizes, speeds and
+// directions make the water look alive. Each layer is two screen-widths wide and slides by one width.
+const WAVE_LAYERS = [
+  { period: 1440, amplitude: 34, baseline: 150, fill: '#5FA8D6', opacity: 0.45, drift: 'wave-drift-left', seconds: 30, swell: 9, delay: 0 },
+  { period: 720, amplitude: 26, baseline: 205, fill: '#0075BA', opacity: 0.8, drift: 'wave-drift-right', seconds: 22, swell: 7, delay: -2 },
+  { period: 480, amplitude: 18, baseline: 258, fill: '#0051AD', opacity: 1, drift: 'wave-drift-left', seconds: 15, swell: 6, delay: -4 },
+].map((l) => ({ ...l, path: wavePath(l.period, l.amplitude, l.baseline) }));
+
+// Sits behind the card along the bottom of the page and never blocks a tap.
 function Waves() {
   return (
-    <svg
-      className="absolute bottom-0 left-0 w-full h-[30vh] min-h-[150px] max-h-[320px] pointer-events-none z-0"
-      viewBox="0 0 1440 320"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path fill="#4DB8DB" fillOpacity="0.35" d="M0,160 C240,100 480,220 720,170 C960,120 1200,60 1440,130 L1440,320 L0,320 Z" />
-      <path fill="#2494BD" fillOpacity="0.55" d="M0,210 C200,170 420,260 680,225 C940,190 1180,150 1440,205 L1440,320 L0,320 Z" />
-      <path fill={CERULEAN} d="M0,260 C240,230 480,300 760,268 C1040,236 1250,225 1440,262 L1440,320 L0,320 Z" />
-    </svg>
+    <div className="absolute bottom-0 left-0 w-full h-[30vh] min-h-[150px] max-h-[320px] overflow-hidden pointer-events-none z-0" aria-hidden="true">
+      {WAVE_LAYERS.map((l, i) => (
+        <div key={i} className="wave-swell absolute inset-0" style={{ animationDuration: `${l.swell}s`, animationDelay: `${l.delay}s` }}>
+          <svg
+            className={`${l.drift} absolute top-0 left-0 h-full max-w-none`}
+            style={{ width: '200%', animationDuration: `${l.seconds}s` }}
+            viewBox="0 0 2880 320"
+            preserveAspectRatio="none"
+            focusable="false"
+          >
+            <path d={l.path} fill={l.fill} fillOpacity={l.opacity} />
+          </svg>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -34,8 +51,8 @@ function Shell({ title, subtitle, children }: { title: string; subtitle?: string
       <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-5">
         <div className="flex justify-end"><LanguageSwitch /></div>
         <div className="text-center space-y-1">
-          <Shield className="w-10 h-10 text-[#007BA7] mx-auto" />
-          <h1 className="text-xl font-black text-[#007BA7]">{title}</h1>
+          <Shield className="w-10 h-10 text-brand mx-auto" />
+          <h1 className="text-xl font-black text-brand">{title}</h1>
           {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
         </div>
         {children}
@@ -71,7 +88,7 @@ function SubmitButton({ busy, children }: { busy: boolean; children: React.React
     <button
       type="submit"
       disabled={busy}
-      className="w-full bg-[#007BA7] hover:bg-[#006690] disabled:opacity-60 text-white font-bold py-3 rounded-xl transition flex items-center justify-center space-x-2"
+      className="w-full bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 rounded-xl transition flex items-center justify-center space-x-2"
     >
       {busy && <Loader2 className="w-4 h-4 animate-spin" />}
       <span>{children}</span>
@@ -115,7 +132,7 @@ export function LoginScreen({ onDone, onForgot, notice }: { onDone: () => void; 
         <ErrorBox message={error} />
         <SubmitButton busy={busy}>{t('Sign in')}</SubmitButton>
         {onForgot && (
-          <button type="button" onClick={onForgot} className="w-full text-sm font-semibold text-[#007BA7] underline">
+          <button type="button" onClick={onForgot} className="w-full text-sm font-semibold text-brand underline">
             {t('Forgot password?')}
           </button>
         )}

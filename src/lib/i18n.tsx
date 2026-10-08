@@ -63,7 +63,7 @@ export const useI18n = () => useContext(I18nContext);
 export function LanguageSwitch({ className = '', dark = false }: { className?: string; dark?: boolean }) {
   const { lang, setLang } = useI18n();
   const base = 'px-2.5 py-1 text-xs font-bold transition';
-  const on = dark ? 'bg-white text-emerald-800' : 'bg-slate-900 text-white';
+  const on = dark ? 'bg-white text-emerald-800' : 'bg-brand text-white';
   const off = dark ? 'text-emerald-100 hover:bg-emerald-600' : 'text-slate-600 hover:bg-slate-100';
   return (
     <div role="group" aria-label="Language / Kasa" className={`inline-flex rounded-lg overflow-hidden border ${dark ? 'border-emerald-300/50' : 'border-slate-300'} ${className}`}>
