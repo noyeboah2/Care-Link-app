@@ -31,7 +31,7 @@ const fmtWhen = (sql: string) => {
 
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', SUPERVISOR: 'Supervisor', WORKER: 'Health worker' };
 const inputCls =
-  'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 focus:outline-none';
+  'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-brand focus:outline-none';
 
 export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId }) => {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -139,7 +139,7 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="w-full max-w-5xl space-y-6">
       <div className="bg-white rounded-xl shadow-md p-5 space-y-4">
         <h2 className="text-lg font-black text-slate-900">Add a team member</h2>
         <form onSubmit={addUser} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -173,7 +173,7 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
             </div>
           </div>
           <div className="sm:col-span-2">
-            <button type="submit" disabled={busy} className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-xl transition">
+            <button type="submit" disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-xl transition">
               Add user
             </button>
           </div>

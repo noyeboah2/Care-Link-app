@@ -86,7 +86,7 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
   if (isSubmitting) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center p-6 space-y-4">
-        <HeartPulse className="w-16 h-16 text-blue-900 animate-bounce" />
+        <HeartPulse className="w-16 h-16 text-brand animate-bounce" />
         <h3 className="text-lg font-bold text-slate-800">{t('Checking the answers...')}</h3>
         <p className="text-sm text-slate-500">{t('Working out the risk for {name}', { name: childName })}</p>
       </div>
@@ -95,7 +95,7 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
 
   if (result === 'HIGH_RISK') {
     return (
-      <div className="p-4 max-w-md mx-auto space-y-5 animate-in fade-in duration-300">
+      <div className="p-4 max-w-2xl mx-auto space-y-5 animate-in fade-in duration-300">
         <div className="bg-red-600 text-white p-5 rounded-2xl shadow-lg border border-red-700 text-center space-y-2">
           <AlertTriangle className="w-12 h-12 mx-auto animate-pulse" />
           <h2 className="text-2xl font-black uppercase tracking-tight">{t('HIGH RISK DETECTED')}</h2>
@@ -116,7 +116,7 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
 
   if (result === 'LOW_RISK') {
     return (
-      <div className="p-4 max-w-md mx-auto space-y-5 animate-in fade-in duration-300">
+      <div className="p-4 max-w-2xl mx-auto space-y-5 animate-in fade-in duration-300">
         <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-lg border border-emerald-700 text-center space-y-2">
           <CheckCircle className="w-12 h-12 mx-auto" />
           <h2 className="text-2xl font-black uppercase tracking-tight">{t('LOW RISK ASSESSMENT')}</h2>
@@ -140,7 +140,7 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-md p-5 space-y-6">
+    <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-md p-5 space-y-6">
       <div className="flex items-center justify-between border-b pb-3">
         <button
           onClick={() => step > 0 && setStep(step - 1)}
@@ -152,14 +152,14 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
         <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">
           {t('Question {n} of {total}', { n: step + 1, total: SCREENING_QUESTIONS.length })}
         </span>
-        <span className="text-xs font-semibold text-blue-900 bg-blue-50 px-2 py-0.5 rounded">
+        <span className="text-xs font-semibold text-brand bg-blue-50 px-2 py-0.5 rounded">
           {childName}
         </span>
       </div>
 
       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
         <div
-          className="bg-blue-900 h-full transition-all duration-300"
+          className="bg-brand h-full transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
@@ -176,7 +176,7 @@ export const ScdScreeningWizard: React.FC<{ userId: string; childName: string; c
         >{t('NO')}</button>
         <button
           onClick={() => handleAnswer(true)}
-          className="min-h-[56px] bg-blue-900 hover:bg-blue-800 text-white font-bold text-lg rounded-xl active:scale-95 transition shadow-md shadow-blue-900/20"
+          className="min-h-[56px] bg-brand hover:bg-brand-dark text-white font-bold text-lg rounded-xl active:scale-95 transition shadow-md shadow-blue-900/20"
         >{t('YES')}</button>
       </div>
     </div>

@@ -12,7 +12,7 @@ export const SyncBadge: React.FC<{ status: Status }> = ({ status }) => {
   const n = status.pending.length;
   if (!status.online) {
     return (
-      <span className="flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-amber-500/20 text-amber-300 border-amber-500/40">
+      <span className="flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-amber-400 text-amber-950 border-amber-300">
         <WifiOff className="w-3 h-3" />
         <span>{t('Offline')}{n > 0 ? ` · ${t('{n} waiting', { n })}` : ''}</span>
       </span>
@@ -22,7 +22,7 @@ export const SyncBadge: React.FC<{ status: Status }> = ({ status }) => {
     return (
       <button
         onClick={() => void status.syncNow()}
-        className="flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-sky-500/20 text-sky-200 border-sky-400/40"
+        className="flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-white text-brand border-white"
         title={t('Tap to upload now')}
       >
         {status.syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudUpload className="w-3 h-3" />}
@@ -31,7 +31,7 @@ export const SyncBadge: React.FC<{ status: Status }> = ({ status }) => {
     );
   }
   return (
-    <span className="flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
+    <span className="flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-white/15 text-white border-white/30">
       <Wifi className="w-3 h-3" />
       <span>{t('Online')}</span>
     </span>

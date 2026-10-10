@@ -14,7 +14,7 @@ interface RunSummary {
   due: Array<{ firstName: string; kind: string; forDate: string; state: string }>;
 }
 
-const inputCls = 'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-700 focus:outline-none';
+const inputCls = 'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-brand focus:outline-none';
 const KIND: Record<string, string> = { DAY_BEFORE: 'Day before', DUE_TODAY: 'On the day', OVERDUE: 'Overdue' };
 const STATUS_CLS: Record<string, string> = {
   DELIVERED: 'bg-emerald-100 text-emerald-700', SENT: 'bg-sky-100 text-sky-800', QUEUED: 'bg-slate-100 text-slate-600',
@@ -99,7 +99,7 @@ export const SmsPanel: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) => {
   const callbackUrl = settings ? `${window.location.origin}/api/sms/delivery?token=${settings.callbackToken}` : '';
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="w-full max-w-5xl space-y-6">
       <div>
         <h1 className="text-xl font-black text-slate-900">SMS reminders</h1>
         <p className="text-sm text-slate-500">
@@ -151,7 +151,7 @@ export const SmsPanel: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) => {
                   await load();
                   return 'Saved.';
                 })}
-                className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-xl"
+                className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-xl"
               >
                 Save
               </button>

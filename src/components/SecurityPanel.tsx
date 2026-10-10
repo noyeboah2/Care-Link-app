@@ -21,7 +21,7 @@ const ACTION_LABEL: Record<string, string> = {
 };
 const DANGER = ['PASSWORD_RESET_FAILED', 'USER_PHONE_CHANGED', 'LOGIN_FAILED', 'CASE_DELETED', 'CASES_CLEARED', 'AUDIT_RESET', 'BACKUP_RESTORED', 'USER_DEACTIVATED', 'USER_ROLE_CHANGED', 'USER_PASSWORD_RESET'];
 
-const inputCls = 'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-emerald-700 focus:outline-none';
+const inputCls = 'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand focus:outline-none';
 
 const fmt = (sql: string) => {
   const d = new Date(sql.replace(' ', 'T') + 'Z');
@@ -320,7 +320,7 @@ const Backups: React.FC = () => {
 export const SecurityPanel: React.FC = () => {
   const [tab, setTab] = useState<'audit' | 'backups'>('audit');
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className="w-full max-w-5xl space-y-5">
       <div>
         <h1 className="text-xl font-black text-slate-900">Security and backups</h1>
         <p className="text-sm text-slate-500">Who accessed children’s records, and how to keep and recover your data.</p>

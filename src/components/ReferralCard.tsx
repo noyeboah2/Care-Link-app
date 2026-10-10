@@ -26,7 +26,7 @@ function PhoneLines({ hospital, big }: { hospital: Hospital; big?: boolean }) {
             <span>{t('Call now ({phone})', { phone: p })}</span>
           </a>
         ) : (
-          <a key={p} href={href} className="inline-flex items-center space-x-1.5 text-xs font-bold text-blue-900 hover:underline mr-3">
+          <a key={p} href={href} className="inline-flex items-center space-x-1.5 text-xs font-bold text-brand hover:underline mr-3">
             <PhoneCall className="w-3.5 h-3.5" />
             <span>{p}</span>
           </a>
@@ -45,9 +45,9 @@ export const ReferralCard: React.FC<{ areaId: string | null | undefined; childAr
   return (
     <div className="bg-white border-2 border-red-200 rounded-2xl p-5 shadow-sm space-y-4">
       <div className="flex items-start space-x-3">
-        <Building2 className="w-8 h-8 text-blue-900 flex-shrink-0 mt-1" />
+        <Building2 className="w-8 h-8 text-brand flex-shrink-0 mt-1" />
         <div>
-          <span className="text-[10px] font-bold bg-blue-100 text-blue-900 px-2 py-0.5 rounded-full uppercase">
+          <span className="text-[10px] font-bold bg-blue-100 text-brand px-2 py-0.5 rounded-full uppercase">
             {t('Refer to')} · {t(reason, reasonVars)}
           </span>
           <h3 className="text-lg font-bold text-slate-900 leading-snug mt-1">{primary.name}</h3>
@@ -75,7 +75,7 @@ export const ReferralCard: React.FC<{ areaId: string | null | undefined; childAr
           <MapPin className="w-4 h-4" />
           <span>{t('Open in Maps')}</span>
         </a>
-        <a href={mapsDirectionsUrl(primary)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-xl py-2.5 text-sm font-bold">
+        <a href={mapsDirectionsUrl(primary)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-1.5 bg-brand hover:bg-brand-dark text-white rounded-xl py-2.5 text-sm font-bold">
           <Navigation className="w-4 h-4" />
           <span>{t('Directions')}</span>
         </a>

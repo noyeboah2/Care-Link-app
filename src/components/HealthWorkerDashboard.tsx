@@ -46,9 +46,8 @@ const fmtSaved = (iso: string) => {
   return Number.isNaN(d.getTime()) ? 'earlier' : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 };
 
-export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening: (child: { id: string; name: string; area?: string | null }) => void }> = ({ userId, onStartScreening }) => {
+export const HealthWorkerDashboard: React.FC<{ userId: string; status: ReturnType<typeof useOfflineStatus>; onStartScreening: (child: { id: string; name: string; area?: string | null }) => void }> = ({ userId, status, onStartScreening }) => {
   const { t } = useI18n();
-  const status = useOfflineStatus(userId);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'assigned' | 'upcoming' | 'overdue'>('assigned');
   const [serverChildren, setServerChildren] = useState<ChildSummary[]>([]);
@@ -179,32 +178,64 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
   });
 
   return (
-    <div className="bg-slate-50 pb-24 max-w-md mx-auto border-x border-slate-200 shadow-2xl flex flex-col min-h-[80vh]">
-      <header className="bg-blue-900 text-white p-4 relative z-30 flex items-center justify-between shadow-md">
-        <div className="flex items-center space-x-2">
-          <Shield className="w-6 h-6 text-emerald-400" />
-          <h1 className="font-black tracking-tight text-lg">{t('SCD Care Ghana')}</h1>
-        </div>
+    <div className="w-full space-y-5">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {[
+          { label: t('Total Active Cases'), value: stats.totalActive, tone: 'text-slate-900' },
+          { label: t('Today\'s Follow-ups'), value: stats.followUpsToday, tone: 'text-brand' },
+          { label: t('Pending Screenings'), value: stats.pendingScreenings, tone: 'text-amber-600' },
+          { label: t('Crisis Alerts'), value: stats.crisisAlerts, tone: 'text-red-600' },
+        ].map((c) => (
+          <div key={c.label} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <span className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">{c.label}</span>
+            <p className={`text-3xl font-black mt-1 ${c.tone}`}>{c.value}</p>
+          </div>
+        ))}
+      </section>
 
-        <div className="flex items-center space-x-3">
-          <SyncBadge status={status} />
+      <div className="space-y-4">
+        {cachedAt && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2 text-xs flex items-start space-x-2">
+            <CloudOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>
+              {cachedAt !== 'earlier'
+                ? t('Showing the list saved on this phone ({when}). New cases and screenings are kept here and upload automatically.', { when: fmtSaved(cachedAt) })
+                : t('Showing the list saved on this phone. New cases and screenings are kept here and upload automatically.')}
+            </span>
+          </div>
+        )}
+        {notice && (
+          <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-xl px-3 py-2 text-xs font-semibold">{t(notice)}</div>
+        )}
+        <SyncIssues status={status} userId={userId} />
 
-          <button
-            onClick={() => setShowAlerts((v) => !v)}
-            className="relative p-1 text-slate-300 hover:text-white"
-            aria-label={`Notifications (${alerts.length})`}
-          >
-            <Bell className="w-5 h-5" />
-            {alerts.length > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {alerts.length > 9 ? '9+' : alerts.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {showAlerts && (
-          <div className="absolute right-3 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-40">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
+            <input
+              type="text"
+              placeholder={t('Search child name or phone...')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white border border-slate-200 pl-11 pr-4 py-2.5 rounded-xl text-sm font-medium shadow-sm focus:ring-2 focus:ring-brand focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowAlerts((v) => !v)}
+                className="relative p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm"
+                aria-label={`Notifications (${alerts.length})`}
+              >
+                <Bell className="w-5 h-5" />
+                {alerts.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {alerts.length > 9 ? '9+' : alerts.length}
+                  </span>
+                )}
+              </button>
+              {showAlerts && (
+          <div className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-40">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
               <p className="text-sm font-black">{t('Alerts')}</p>
               <button onClick={() => setShowAlerts(false)} aria-label={t('Close alerts')} className="text-slate-400 hover:text-slate-700">
@@ -237,61 +268,24 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
             )}
           </div>
         )}
-      </header>
-
-      <section className="p-4 grid grid-cols-2 gap-3 bg-blue-950 text-white">
-        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('Total Active Cases')}</span>
-          <p className="text-2xl font-black text-white mt-1">{stats.totalActive}</p>
-        </div>
-        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('Today\'s Follow-ups')}</span>
-          <p className="text-2xl font-black text-emerald-400 mt-1">{stats.followUpsToday}</p>
-        </div>
-        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('Pending Screenings')}</span>
-          <p className="text-2xl font-black text-amber-400 mt-1">{stats.pendingScreenings}</p>
-        </div>
-        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('Crisis Alerts')}</span>
-          <p className="text-2xl font-black text-red-500 mt-1">{stats.crisisAlerts}</p>
-        </div>
-      </section>
-
-      <main className="p-4 space-y-4 flex-grow">
-        {cachedAt && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2 text-xs flex items-start space-x-2">
-            <CloudOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>
-              {cachedAt !== 'earlier'
-                ? t('Showing the list saved on this phone ({when}). New cases and screenings are kept here and upload automatically.', { when: fmtSaved(cachedAt) })
-                : t('Showing the list saved on this phone. New cases and screenings are kept here and upload automatically.')}
-            </span>
+            </div>
+            <button
+              onClick={openModal}
+              className="hidden sm:inline-flex items-center space-x-2 bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 rounded-xl shadow-sm transition"
+            >
+              <UserPlus className="w-5 h-5" />
+              <span className="text-sm">{t('New Case')}</span>
+            </button>
           </div>
-        )}
-        {notice && (
-          <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-xl px-3 py-2 text-xs font-semibold">{t(notice)}</div>
-        )}
-        <SyncIssues status={status} userId={userId} />
-
-        <div className="relative">
-          <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-          <input
-            type="text"
-            placeholder={t('Search child name or phone...')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-200 pl-11 pr-4 py-3 rounded-xl text-sm font-medium shadow-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
-          />
         </div>
 
-        <div className="flex bg-slate-200 p-1 rounded-xl text-xs font-bold text-slate-600">
+        <div className="inline-flex w-full sm:w-auto bg-slate-100 p-1 rounded-xl text-sm font-bold text-slate-600">
           {(['assigned', 'upcoming', 'overdue'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 text-center rounded-lg capitalize transition ${
-                activeTab === tab ? 'bg-white text-blue-900 shadow-sm' : 'hover:text-slate-900'
+              className={`flex-1 sm:flex-none sm:px-6 py-2 text-center rounded-lg transition ${
+                activeTab === tab ? 'bg-brand text-white shadow-sm' : 'hover:text-slate-900'
               }`}
             >
               {t(tab === 'assigned' ? msg('Assigned') : tab === 'upcoming' ? msg('Upcoming') : msg('Overdue'))}
@@ -326,7 +320,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
           </div>
         )}
 
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
           {filteredChildren.map((child) => (
             <div
               key={child.id}
@@ -381,7 +375,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
 
               <button
                 onClick={() => onStartScreening({ id: child.id, name: child.fullName, area: child.area })}
-                className="ml-3 bg-blue-900 hover:bg-blue-800 text-white p-3 rounded-xl shadow-md active:scale-95 transition"
+                className="ml-3 bg-brand hover:bg-brand-dark text-white p-3 rounded-xl shadow-md active:scale-95 transition"
                 aria-label={t('Start screening')} title={t('Start screening')}
               >
                 <ChevronRight className="w-5 h-5" />
@@ -389,11 +383,11 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
             </div>
           ))}
         </div>
-      </main>
+      </div>
 
       <button
         onClick={openModal}
-        className="fixed bottom-6 right-6 bg-blue-900 text-white font-bold p-4 rounded-full shadow-2xl flex items-center space-x-2 hover:bg-blue-800 active:scale-90 transition z-40 border-2 border-white"
+        className="sm:hidden fixed bottom-6 right-6 bg-brand text-white font-bold p-4 rounded-full shadow-2xl flex items-center space-x-2 hover:bg-brand-dark active:scale-90 transition z-40 border-2 border-white"
       >
         <UserPlus className="w-6 h-6" />
         <span className="text-sm pr-1">{t('New Case')}</span>
@@ -413,7 +407,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
               <input
                 value={form.fullName}
                 onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
                 placeholder={t('e.g. Kofi Addo')}
               />
               {errors.fullName && <p className="text-xs text-red-600 mt-1">{t(errors.fullName)}</p>}
@@ -428,7 +422,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                   max={18}
                   value={form.age}
                   onChange={(e) => setForm({ ...form, age: e.target.value })}
-                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
                 />
                 {errors.age && <p className="text-xs text-red-600 mt-1">{t(errors.age)}</p>}
               </div>
@@ -437,7 +431,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                 <select
                   value={form.gender}
                   onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-brand focus:outline-none"
                 >
                   <option value="Male">{t('Male')}</option>
                   <option value="Female">{t('Female')}</option>
@@ -451,7 +445,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                 type="tel"
                 value={form.caregiverPhone}
                 onChange={(e) => setForm({ ...form, caregiverPhone: e.target.value })}
-                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
                 placeholder="0244123456"
               />
               {errors.caregiverPhone && <p className="text-xs text-red-600 mt-1">{t(errors.caregiverPhone)}</p>}
@@ -462,7 +456,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
               <select
                 value={form.area}
                 onChange={(e) => setForm({ ...form, area: e.target.value })}
-                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-900 focus:outline-none"
+                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-brand focus:outline-none"
               >
                 <option value="">{t('Choose a location...')}</option>
                 {AREAS.map((a) => (
@@ -478,7 +472,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
                 type="checkbox"
                 checked={form.smsConsent}
                 onChange={(e) => setForm({ ...form, smsConsent: e.target.checked })}
-                className="mt-1 w-4 h-4 accent-blue-900"
+                className="mt-1 w-4 h-4 accent-brand"
               />
               <span className="text-xs text-slate-700">
                 <span className="font-bold block">{t('The caregiver agrees to receive SMS reminders')}</span>{t('Tick only after asking the caregiver. Messages only mention the child’s first name and the visit date. They can stop any time by telling you.')}</span>
@@ -492,7 +486,7 @@ export const HealthWorkerDashboard: React.FC<{ userId: string; onStartScreening:
               <button
                 onClick={() => saveCase(true)}
                 disabled={saving}
-                className="w-full bg-blue-900 hover:bg-blue-800 disabled:opacity-60 text-white font-bold py-3 rounded-xl active:scale-95 transition"
+                className="w-full bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 rounded-xl active:scale-95 transition"
               >
                 {saving ? t('Saving...') : t('Save & Start Screening')}
               </button>

@@ -28,7 +28,7 @@ interface ScreeningRow {
 }
 
 const inputCls =
-  'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-900 focus:outline-none';
+  'mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-brand focus:outline-none';
 
 const fmtDateTime = (sqlUtc: string) => {
   const d = new Date(sqlUtc.replace(' ', 'T') + 'Z');
@@ -202,7 +202,7 @@ export const CaseDetails: React.FC<{
                     {t(!latest ? RISK_LABEL.PENDING : RISK_LABEL[latest.riskLevel])}
                   </span>
                 </div>
-                <a href={`tel:${detail.caregiverPhone}`} className="inline-flex items-center space-x-2 text-sm font-semibold text-blue-900 hover:underline">
+                <a href={`tel:${detail.caregiverPhone}`} className="inline-flex items-center space-x-2 text-sm font-semibold text-brand hover:underline">
                   <Phone className="w-4 h-4" />
                   <span>{t('Call caregiver: {phone}', { phone: detail.caregiverPhone })}</span>
                 </a>
@@ -249,7 +249,7 @@ export const CaseDetails: React.FC<{
                   </select>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={saveDetails} disabled={busy} className="flex-1 bg-blue-900 hover:bg-blue-800 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl">
+                  <button onClick={saveDetails} disabled={busy} className="flex-1 bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-2.5 rounded-xl">
                     {busy ? t('Saving...') : t('Save')}
                   </button>
                   <button onClick={() => { setEditing(false); void load(); }} disabled={busy} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 rounded-xl">{t('Cancel')}</button>
@@ -315,7 +315,7 @@ export const CaseDetails: React.FC<{
             {onStartScreening && (
               <button
                 onClick={() => onStartScreening({ id: detail.id, name: detail.fullName, area: detail.area })}
-                className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl flex items-center justify-center space-x-2"
+                className="w-full bg-brand hover:bg-brand-dark text-white font-bold py-3 rounded-xl flex items-center justify-center space-x-2"
               >
                 <ClipboardCheck className="w-5 h-5" />
                 <span>{(offlineMode ? summaryRef.current?.lastRisk !== 'PENDING' : history.length > 0) ? t('Screen again') : t('Start screening')}</span>

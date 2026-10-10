@@ -19,7 +19,7 @@ interface Summary {
 }
 
 const EMPTY: Filters = { workerId: '', area: '', risk: '', from: '', to: '' };
-const selectCls = 'mt-1 w-full border border-slate-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-900 focus:outline-none';
+const selectCls = 'mt-1 w-full border border-slate-300 rounded-lg px-2.5 py-2 text-sm bg-white focus:ring-2 focus:ring-brand focus:outline-none';
 
 const fmtDateTime = (sqlUtc: string) => {
   const d = new Date(sqlUtc.replace(' ', 'T') + 'Z');
@@ -103,7 +103,7 @@ export const SupervisorDashboard: React.FC = () => {
 
   const t = data.totals;
   const cards = [
-    { label: 'Children', value: t.cases, sub: `${t.screenings} screening${t.screenings === 1 ? '' : 's'} recorded`, icon: <Users className="w-7 h-7" />, tone: 'bg-blue-100 text-blue-900', valueCls: 'text-slate-900' },
+    { label: 'Children', value: t.cases, sub: `${t.screenings} screening${t.screenings === 1 ? '' : 's'} recorded`, icon: <Users className="w-7 h-7" />, tone: 'bg-blue-100 text-brand', valueCls: 'text-slate-900' },
     { label: 'Screened', value: t.screened, sub: `${t.notScreened} not screened yet`, icon: <ClipboardList className="w-7 h-7" />, tone: 'bg-emerald-100 text-emerald-700', valueCls: 'text-emerald-700' },
     { label: 'High risk', value: t.highRisk, sub: t.screened ? `${t.highRiskRate}% of screened children` : 'No screenings yet', icon: <AlertOctagon className="w-7 h-7" />, tone: 'bg-red-100 text-red-600', valueCls: 'text-red-600' },
     { label: 'Overdue follow-ups', value: t.overdue, sub: `${t.dueToday} due today`, icon: <ShieldAlert className="w-7 h-7" />, tone: 'bg-amber-100 text-amber-700', valueCls: 'text-amber-700' },
@@ -116,13 +116,13 @@ export const SupervisorDashboard: React.FC = () => {
         <span className="text-right">{s.cases} case{s.cases === 1 ? '' : 's'} · {s.screened} screened · {s.highRisk} high risk · {s.overdue} overdue</span>
       </div>
       <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-        <div className="bg-blue-900 h-full rounded-full" style={{ width: `${(s.cases / max) * 100}%` }} />
+        <div className="bg-brand h-full rounded-full" style={{ width: `${(s.cases / max) * 100}%` }} />
       </div>
     </button>
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex items-center justify-between border-b border-slate-300 pb-4 gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Supervisor Portal</h1>
@@ -232,8 +232,8 @@ export const SupervisorDashboard: React.FC = () => {
           ))}
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-700">
-          <label className="flex items-center space-x-2"><input type="checkbox" checked={hideNames} onChange={(e) => setHideNames(e.target.checked)} className="accent-blue-900" /><span>Hide children’s names (for reports shared outside the team)</span></label>
-          <label className="flex items-center space-x-2"><input type="checkbox" checked={includePhone} onChange={(e) => setIncludePhone(e.target.checked)} className="accent-blue-900" /><span>Include caregiver phone numbers</span></label>
+          <label className="flex items-center space-x-2"><input type="checkbox" checked={hideNames} onChange={(e) => setHideNames(e.target.checked)} className="accent-brand" /><span>Hide children’s names (for reports shared outside the team)</span></label>
+          <label className="flex items-center space-x-2"><input type="checkbox" checked={includePhone} onChange={(e) => setIncludePhone(e.target.checked)} className="accent-brand" /><span>Include caregiver phone numbers</span></label>
         </div>
         <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">
           Case lists and screenings can contain children’s names. Keep downloaded files on a locked device and don’t send them by email or chat.
@@ -288,7 +288,7 @@ export const SupervisorDashboard: React.FC = () => {
                 {data.overdueList.map((r) => (
                   <tr key={r.id}>
                     <td className="p-3 font-bold text-slate-900">{r.name}</td>
-                    <td className="p-3"><a href={`tel:${r.phone}`} className="text-blue-900 hover:underline">{r.phone}</a></td>
+                    <td className="p-3"><a href={`tel:${r.phone}`} className="text-brand hover:underline">{r.phone}</a></td>
                     <td className="p-3 text-slate-600">{r.workerName}</td>
                     <td className="p-3 font-bold text-red-600">{r.daysOverdue} day{r.daysOverdue === 1 ? '' : 's'}</td>
                     <td className="p-3 text-right print:hidden">
@@ -313,7 +313,7 @@ export const SupervisorDashboard: React.FC = () => {
                 <li key={r.id} className="py-2.5 flex items-center justify-between gap-2 text-sm">
                   <div>
                     <p className="font-bold text-slate-900">{r.name}</p>
-                    <p className="text-xs text-slate-500">{r.workerName} · <a href={`tel:${r.phone}`} className="text-blue-900">{r.phone}</a></p>
+                    <p className="text-xs text-slate-500">{r.workerName} · <a href={`tel:${r.phone}`} className="text-brand">{r.phone}</a></p>
                   </div>
                   <button onClick={() => setOpenCase(r.id)} className="text-xs font-bold border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50 print:hidden">Open</button>
                 </li>

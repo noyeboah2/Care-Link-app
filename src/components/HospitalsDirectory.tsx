@@ -9,7 +9,7 @@ export const HospitalsDirectory: React.FC = () => {
   const list = HOSPITALS.filter((h) => `${h.name} ${h.area}`.toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="w-full space-y-4">
       <div>
         <h1 className="text-xl font-black text-slate-900">{t('Referral hospitals')}</h1>
         <p className="text-sm text-slate-500">{t('Call or get directions. High-risk screenings recommend the hospital that serves the child’s location.')}</p>
@@ -20,13 +20,13 @@ export const HospitalsDirectory: React.FC = () => {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t('Search by hospital or town...')}
-          className="w-full bg-white border border-slate-200 pl-11 pr-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-blue-900 focus:outline-none"
+          className="w-full bg-white border border-slate-200 pl-11 pr-4 py-2.5 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:outline-none"
         />
       </div>
 
       {list.length === 0 && <p className="text-sm text-slate-500 text-center py-6">{t('No hospitals match your search.')}</p>}
 
-      <ul className="space-y-3">
+      <ul className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {list.map((h) => (
           <li key={h.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
             <div>
@@ -55,7 +55,7 @@ export const HospitalsDirectory: React.FC = () => {
                 <MapPin className="w-3.5 h-3.5" />
                 <span>{t('Map')}</span>
               </a>
-              <a href={mapsDirectionsUrl(h)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center space-x-1.5 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold px-3 py-2 rounded-lg">
+              <a href={mapsDirectionsUrl(h)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center space-x-1.5 bg-brand hover:bg-brand-dark text-white text-xs font-bold px-3 py-2 rounded-lg">
                 <Navigation className="w-3.5 h-3.5" />
                 <span>{t('Directions')}</span>
               </a>
