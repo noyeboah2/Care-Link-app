@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { BarChart3, Building2, ClipboardCheck, LayoutDashboard, LogOut, Menu, MessageSquare, ShieldCheck, Shield, Users, X } from 'lucide-react';
+import { BarChart3, BookOpen, Building2, ClipboardCheck, LayoutDashboard, LogOut, Menu, MessageSquare, ShieldCheck, Shield, Users, X } from 'lucide-react';
 import { LanguageSwitch, useI18n } from '@/lib/i18n';
 import { SyncBadge } from '@/components/SyncStatus';
 import type { useOfflineStatus } from '@/lib/useOffline';
@@ -15,6 +15,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   worker: LayoutDashboard,
   screening: ClipboardCheck,
   hospitals: Building2,
+  guide: BookOpen,
   supervisor: BarChart3,
   sms: MessageSquare,
   security: ShieldCheck,
@@ -61,8 +62,8 @@ export function AppShell({
   }, [open]);
 
   const current = tabs.find((x) => x.id === activeTab);
-  const workTabs = tabs.filter((x) => ['worker', 'screening', 'hospitals'].includes(x.id));
-  const adminTabs = tabs.filter((x) => !['worker', 'screening', 'hospitals'].includes(x.id));
+  const workTabs = tabs.filter((x) => ['worker', 'screening', 'hospitals', 'guide'].includes(x.id));
+  const adminTabs = tabs.filter((x) => !['worker', 'screening', 'hospitals', 'guide'].includes(x.id));
 
   const item = (tab: NavTab) => {
     const Icon = ICONS[tab.id] ?? LayoutDashboard;

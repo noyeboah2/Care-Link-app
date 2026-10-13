@@ -10,6 +10,7 @@ import { UsersPanel } from '@/components/UsersPanel';
 import { HospitalsDirectory } from '@/components/HospitalsDirectory';
 import { SmsPanel } from '@/components/SmsPanel';
 import { SecurityPanel } from '@/components/SecurityPanel';
+import { GuidePage } from '@/components/GuidePage';
 import { clearCachedCases, getQueue } from '@/lib/offline';
 import { useOfflineStatus } from '@/lib/useOffline';
 import { AppShell, type NavTab } from '@/components/AppShell';
@@ -31,7 +32,7 @@ type AuthState =
   | { status: 'signedOut' }
   | { status: 'signedIn'; user: User };
 
-type Tab = 'worker' | 'supervisor' | 'screening' | 'hospitals' | 'sms' | 'security' | 'users';
+type Tab = 'worker' | 'supervisor' | 'screening' | 'hospitals' | 'guide' | 'sms' | 'security' | 'users';
 const ROLE_LABEL: Record<Role, string> = { ADMIN: msg('Admin'), SUPERVISOR: msg('Supervisor'), WORKER: msg('Health worker') };
 
 // Remembered on the phone so a signed-in worker can still open the app with no signal.
@@ -181,6 +182,7 @@ function SignedInApp({ user, onSignOut }: { user: User; onSignOut: () => void })
     { id: 'worker', label: msg('Worker Dashboard') },
     { id: 'screening', label: msg('Screening Wizard') },
     { id: 'hospitals', label: msg('Hospitals') },
+    { id: 'guide', label: msg('Sickle Cell Guide') },
     ...(canSeeAll ? [{ id: 'supervisor', label: 'Supervisor Portal' }, { id: 'sms', label: 'SMS' }] : []),
     ...(user.role === 'ADMIN' ? [{ id: 'security', label: 'Security' }, { id: 'users', label: 'Team' }] : []),
   ];
@@ -216,6 +218,7 @@ function SignedInApp({ user, onSignOut }: { user: User; onSignOut: () => void })
         </div>
       )}
       {activeTab === 'hospitals' && <HospitalsDirectory />}
+      {activeTab === 'guide' && <GuidePage />}
       {activeTab === 'supervisor' && canSeeAll && <SupervisorDashboard />}
       {activeTab === 'sms' && canSeeAll && <SmsPanel isAdmin={user.role === 'ADMIN'} />}
       {activeTab === 'security' && user.role === 'ADMIN' && <SecurityPanel />}
