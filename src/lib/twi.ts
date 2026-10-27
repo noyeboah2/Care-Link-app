@@ -22,6 +22,7 @@ export const TWI: Record<string, string> = {
   "Close menu": "To menu no mu",
   "Main menu": "Menu titiriw",
   "Sign out": "Fi mu",
+  "Demo: all the information in this app is made up, for demonstration only.": "Nsɛm nyinaa a ɛwɔ app yi mu yɛ atoro, yɛde rekyerɛ nkyerɛkyerɛ nko ara.",
   "Open menu": "Bue menu no",
   "No internet connection. Please connect and try again.": "Intanɛt nni hɔ. Yɛsrɛ wo, fa wo ho ka intanɛt na san bɔ mmɔden.",
   "Something went wrong": "Biribi akɔ basaa",

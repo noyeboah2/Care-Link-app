@@ -15,11 +15,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { user: admin, db } = auth;
     const { id } = await params;
 
-    const target = await db.prepare('SELECT id, email, name, role FROM users WHERE id = ?').bind(id).first<{ id: string; email: string; name: string; role: string }>();
+    const target = await db.prepare('SELECT id, email, name, role, is_demo FROM users WHERE id = ?').bind(id).first<{ id: string; email: string; name: string; role: string; is_demo: number }>();
     if (!target) return fail('User not found', 404);
 
     const body = (await request.json()) as Record<string, unknown>;
     const action = body.action;
+    if (target.is_demo === 1 && ['resetPassword', 'setRole', 'setPhone'].includes(String(action))) {
+      return fail('This is a demo login. Change it from the Demo section instead.', 400);
+    }
     let audited: Parameters<typeof logAudit>[3] | null = null;
     let extra: Record<string, unknown> = { email: target.email };
     let tempPassword: string | null = null;

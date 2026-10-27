@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     if (user) {
       return NextResponse.json({
         success: true,
-        user: { id: user.id, email: user.email, name: user.name, role: user.role, mustChange: user.mustChange },
+        user: { id: user.id, email: user.email, name: user.name, role: user.role, mustChange: user.mustChange, demo: user.isDemo },
       });
     }
     const count = await db.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>();

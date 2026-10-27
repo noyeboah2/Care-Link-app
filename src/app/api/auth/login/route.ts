@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { actorOf, logAudit } from '@/lib/audit';
-import { createSession, normalizeEmail, sameOrigin, setSessionCookie, verifyPassword } from '@/lib/auth';
+import { createSession, realDataExists, normalizeEmail, sameOrigin, setSessionCookie, verifyPassword } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,15 +29,19 @@ export async function POST(request: Request) {
     }
 
     const user = await db
-      .prepare('SELECT id, name, role, password_hash FROM users WHERE email = ? AND active = 1')
+      .prepare('SELECT id, name, role, password_hash, is_demo FROM users WHERE email = ? AND active = 1')
       .bind(email)
-      .first<{ id: string; name: string; role: string; password_hash: string }>();
+      .first<{ id: string; name: string; role: string; password_hash: string; is_demo: number }>();
     const ok = await verifyPassword(password, user?.password_hash ?? null);
 
     if (!user || !ok) {
       await db.prepare('INSERT INTO login_attempts (email, at) VALUES (?, ?)').bind(email, Date.now()).run();
       await logAudit(db, request, null, 'LOGIN_FAILED', { details: { email }, withIp: true });
       return fail('Incorrect email or password', 401);
+    }
+
+    if (user.is_demo === 1 && (await realDataExists(db))) {
+      return fail('The demo is switched off because this system now holds real records.', 403);
     }
 
     await db.prepare('DELETE FROM login_attempts WHERE email = ?').bind(email).run();

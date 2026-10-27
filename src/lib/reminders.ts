@@ -39,7 +39,7 @@ export async function planReminders(db: Db, today: string): Promise<Planned[]> {
       `SELECT c.id, c.full_name, c.caregiver_phone, c.follow_up_date,
          (SELECT MAX(date(s.created_at)) FROM screenings s WHERE s.child_id = c.id) AS last_screened
        FROM children c
-       WHERE c.sms_consent = 1 AND c.follow_up_date IS NOT NULL AND c.follow_up_date BETWEEN ? AND ?`,
+       WHERE c.is_demo = 0 AND c.sms_consent = 1 AND c.follow_up_date IS NOT NULL AND c.follow_up_date BETWEEN ? AND ?`,
     )
     .bind(from, to)
     .all<{ id: string; full_name: string; caregiver_phone: string; follow_up_date: string; last_screened: string | null }>();

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { getSetting } from '@/lib/settings';
 import { runReminders } from '@/lib/reminders';
+import { refreshDemoIfActive } from '@/lib/demo';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,9 @@ async function handle(request: Request) {
 
     const summary = await runReminders(db, { dryRun: false });
     console.log('Daily reminders', JSON.stringify({ ...summary, due: summary.due.length }));
-    return NextResponse.json({ success: true, summary });
+    const demo = await refreshDemoIfActive(db).catch((e) => { console.error('Demo refresh failed', e); return 'failed'; });
+    console.log('Demo refresh', demo);
+    return NextResponse.json({ success: true, summary, demo });
   } catch (err) {
     console.error('Daily reminders failed', err);
     return NextResponse.json({ success: false }, { status: 500 });

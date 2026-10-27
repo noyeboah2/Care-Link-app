@@ -11,6 +11,7 @@ export interface SessionUser {
   role: Role;
   mustChange: boolean;
   sessionId: string;
+  isDemo: boolean;
 }
 
 export const SESSION_COOKIE = 'cl_session';
@@ -106,6 +107,12 @@ function getCookie(request: Request, name: string): string | null {
   return null;
 }
 
+// True when any real (non-demo) child record exists. Demo logins are switched off in that case.
+export async function realDataExists(db: Db): Promise<boolean> {
+  const r = await db.prepare('SELECT EXISTS(SELECT 1 FROM children WHERE is_demo = 0) AS x').first<{ x: number }>();
+  return !!r && r.x === 1;
+}
+
 export async function getSessionUser(request: Request, db?: Db): Promise<SessionUser | null> {
   const token = getCookie(request, SESSION_COOKIE);
   if (!token) return null;
@@ -113,14 +120,15 @@ export async function getSessionUser(request: Request, db?: Db): Promise<Session
   const sessionId = await sha256Hex(token);
   const row = await database
     .prepare(
-      `SELECT u.id, u.email, u.name, u.role, u.must_change
+      `SELECT u.id, u.email, u.name, u.role, u.must_change, u.is_demo
        FROM sessions s JOIN users u ON u.id = s.user_id
        WHERE s.id = ? AND s.expires_at > ? AND u.active = 1`,
     )
     .bind(sessionId, Date.now())
-    .first<{ id: string; email: string; name: string; role: Role; must_change: number }>();
+    .first<{ id: string; email: string; name: string; role: Role; must_change: number; is_demo: number }>();
   if (!row) return null;
-  return { id: row.id, email: row.email, name: row.name, role: row.role, mustChange: row.must_change === 1, sessionId };
+  if (row.is_demo === 1 && (await realDataExists(database))) return null;
+  return { id: row.id, email: row.email, name: row.name, role: row.role, mustChange: row.must_change === 1, sessionId, isDemo: row.is_demo === 1 };
 }
 
 export function sameOrigin(request: Request): boolean {

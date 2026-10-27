@@ -12,8 +12,8 @@ export async function GET(request: Request) {
     const auth = await requireUser(request, { roles: ['ADMIN'] });
     if ('error' in auth) return auth.error;
     const { results } = await auth.db
-      .prepare('SELECT id, email, name, role, phone, active, must_change, created_at FROM users ORDER BY created_at, rowid')
-      .all<{ id: string; email: string; name: string; role: Role; phone: string | null; active: number; must_change: number; created_at: string }>();
+      .prepare("SELECT id, email, name, role, phone, active, must_change, is_demo, created_at FROM users WHERE NOT (is_demo = 1 AND role = 'WORKER') ORDER BY created_at, rowid")
+      .all<{ id: string; email: string; name: string; role: Role; phone: string | null; active: number; must_change: number; is_demo: number; created_at: string }>();
     return NextResponse.json({
       success: true,
       users: results.map((u) => ({
@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         phone: u.phone,
         active: u.active === 1,
         mustChange: u.must_change === 1,
+        isDemo: u.is_demo === 1,
         createdAt: u.created_at,
       })),
     });

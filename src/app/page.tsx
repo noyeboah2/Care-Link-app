@@ -24,6 +24,7 @@ interface User {
   name: string;
   role: Role;
   mustChange: boolean;
+  demo?: boolean;
 }
 type AuthState =
   | { status: 'loading' }
@@ -189,6 +190,7 @@ function SignedInApp({ user, onSignOut }: { user: User; onSignOut: () => void })
 
   return (
     <AppShell
+      demo={user.demo}
       user={user}
       roleLabel={ROLE_LABEL[user.role]}
       tabs={tabs}

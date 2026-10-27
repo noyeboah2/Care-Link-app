@@ -11,6 +11,7 @@ export async function POST(request: Request) {
     const auth = await requireUser(request, { allowMustChange: true });
     if ('error' in auth) return auth.error;
     const { user, db } = auth;
+    if (user.isDemo) return fail('Demo accounts cannot change the password.', 403);
 
     const body = (await request.json()) as Record<string, unknown>;
     if (typeof body.currentPassword !== 'string') return fail('Enter your current password', 400);

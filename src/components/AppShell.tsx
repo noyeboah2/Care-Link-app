@@ -33,9 +33,11 @@ export function AppShell({
   status,
   onSignOut,
   footerNote,
+  demo,
   children,
 }: {
   user: { name: string };
+  demo?: boolean;
   roleLabel: string;
   tabs: NavTab[];
   activeTab: string;
@@ -158,6 +160,11 @@ export function AppShell({
           </div>
         </header>
 
+        {demo && (
+          <div className="bg-amber-100 text-amber-900 text-xs sm:text-sm font-semibold px-4 py-2 border-b border-amber-300">
+            {t('Demo: all the information in this app is made up, for demonstration only.')}
+          </div>
+        )}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-white">{children}</main>
         {footerNote}
       </div>

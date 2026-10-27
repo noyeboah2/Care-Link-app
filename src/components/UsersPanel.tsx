@@ -10,6 +10,7 @@ interface UserRow {
   phone: string | null;
   active: boolean;
   mustChange: boolean;
+  isDemo?: boolean;
 }
 interface RecoveryRequest {
   id: string;
@@ -238,13 +239,13 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
                   </p>
                   <p className="text-xs text-slate-500">
                     {u.email} ·{' '}
-                    {u.phone ? u.phone : <span className="font-bold text-amber-700">no phone (cannot use text recovery)</span>}
+                    {u.isDemo ? <span className="font-bold text-amber-700">demo login (made-up data only)</span> : u.phone ? u.phone : <span className="font-bold text-amber-700">no phone (cannot use text recovery)</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <select
                     value={u.role}
-                    disabled={busy || u.id === currentUserId}
+                    disabled={busy || u.id === currentUserId || u.isDemo}
                     onChange={(e) => changeRole(u, e.target.value as Role)}
                     className="border border-slate-200 rounded-lg px-2 py-1.5 bg-white disabled:opacity-60"
                   >
@@ -252,12 +253,16 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
                     <option value="SUPERVISOR">Supervisor</option>
                     <option value="ADMIN">Admin</option>
                   </select>
-                  <button onClick={() => editPhone(u)} disabled={busy} className="border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 font-semibold">
-                    {u.phone ? 'Edit phone' : 'Add phone'}
-                  </button>
-                  <button onClick={() => resetPassword(u)} disabled={busy} className="border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 font-semibold">
-                    Reset password
-                  </button>
+                  {!u.isDemo && (
+                    <button onClick={() => editPhone(u)} disabled={busy} className="border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 font-semibold">
+                      {u.phone ? 'Edit phone' : 'Add phone'}
+                    </button>
+                  )}
+                  {!u.isDemo && (
+                    <button onClick={() => resetPassword(u)} disabled={busy} className="border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 font-semibold">
+                      Reset password
+                    </button>
+                  )}
                   {u.id !== currentUserId && (
                     <button onClick={() => toggleActive(u)} disabled={busy} className="border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 font-semibold">
                       {u.active ? 'Deactivate' : 'Reactivate'}
@@ -269,6 +274,8 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
           </ul>
         )}
       </div>
+
+      <DemoCard onChanged={() => void load()} />
 
       <div className="bg-white rounded-xl shadow-md p-5 space-y-3 border border-red-200">
         <h2 className="text-lg font-black text-red-700">Clear test data</h2>
@@ -295,6 +302,99 @@ export const UsersPanel: React.FC<{ currentUserId: string }> = ({ currentUserId 
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+
+interface DemoStatus {
+  accounts: Array<{ id: string; email: string; name: string; active: boolean }>;
+  demoCases: number;
+  realCases: number;
+  blocked: boolean;
+  lastLoaded: string | null;
+}
+
+// For people who only need to look around (for example college reviewers). Opens made-up data only.
+const DemoCard: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
+  const [st, setSt] = useState<DemoStatus | null>(null);
+  const [form, setForm] = useState({ email: '', password: '', name: 'Demo Reviewer' });
+  const [busy, setBusy] = useState(false);
+  const [msgText, setMsgText] = useState('');
+  const [err, setErr] = useState('');
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/demo', { cache: 'no-store' });
+      const d = (await res.json()) as DemoStatus & { success: boolean };
+      if (res.ok && d.success) setSt(d);
+    } catch { /* leave as is */ }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const act = async (payload: Record<string, unknown>, done: string) => {
+    setBusy(true); setErr(''); setMsgText('');
+    try {
+      const res = await fetch('/api/admin/demo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const d = (await res.json()) as DemoStatus & { success: boolean; error?: string };
+      if (!res.ok || !d.success) throw new Error(d.error || 'Something went wrong');
+      setSt(d); setMsgText(done); onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Something went wrong');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-md p-5 space-y-3 border border-amber-300">
+      <h2 className="text-lg font-black text-slate-900">Demo for reviewers</h2>
+      <p className="text-sm text-slate-600">
+        Make an easy login for people who just want to look around (for example college reviewers). It opens <b>only made-up children</b>.
+        It switches itself off as soon as real cases exist, so it can never expose real patients. Never enter real patient details while the demo is in use.
+      </p>
+      {st?.blocked && (
+        <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+          The demo is switched off because {st.realCases} real or practice case(s) exist. Use “Clear test data” below first, then load the demo data.
+        </p>
+      )}
+      {st && (
+        <p className="text-xs text-slate-500">
+          Demo children now: <b>{st.demoCases}</b>{st.lastLoaded ? ` · loaded ${st.lastLoaded}` : ''}. The daily job refreshes the dates while a demo login exists.
+        </p>
+      )}
+      {st && st.accounts.length > 0 && (
+        <ul className="text-sm divide-y divide-slate-100">
+          {st.accounts.map((a) => (
+            <li key={a.id} className="py-2 flex items-center justify-between gap-2">
+              <span>{a.name} <span className="text-xs text-slate-400">{a.email}</span></span>
+              <button onClick={() => { if (window.confirm('Remove this demo login?')) void act({ action: 'removeAccount', id: a.id }, 'Demo login removed.'); }} disabled={busy} className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold hover:bg-slate-50">Remove login</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        onSubmit={(e) => { e.preventDefault(); void act({ action: 'setAccount', ...form }, 'Demo login saved.'); }}
+        className="grid grid-cols-1 sm:grid-cols-3 gap-2"
+      >
+        <div>
+          <label className="text-xs font-bold text-slate-600">Demo email</label>
+          <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-600">Demo password</label>
+          <input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-600">Name shown</label>
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
+        </div>
+        <div className="sm:col-span-3 flex flex-wrap gap-2">
+          <button type="submit" disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold px-4 py-2 rounded-xl text-sm">Create or update demo login</button>
+          <button type="button" disabled={busy || !!st?.blocked} onClick={() => void act({ action: 'load' }, 'Fresh demo data loaded.')} className="border border-slate-300 font-bold px-4 py-2 rounded-xl text-sm hover:bg-slate-50 disabled:opacity-40">Load fresh demo data</button>
+          <button type="button" disabled={busy || !st || st.demoCases === 0} onClick={() => void act({ action: 'remove' }, 'Demo data removed.')} className="border border-slate-300 font-bold px-4 py-2 rounded-xl text-sm hover:bg-slate-50 disabled:opacity-40">Remove demo data</button>
+        </div>
+      </form>
+      {msgText && <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">{msgText}</p>}
+      {err && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</p>}
     </div>
   );
 };

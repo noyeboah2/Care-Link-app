@@ -107,8 +107,8 @@ export async function POST(request: Request) {
       });
     }
     await db
-      .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone, area, created_by, sms_consent, sms_consent_at, sms_consent_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN datetime(\'now\') END, CASE WHEN ? = 1 THEN ? END)')
-      .bind(id, fullName, age, gender, phone, area, user.id, smsConsent, smsConsent, smsConsent, user.id)
+      .prepare('INSERT INTO children (id, full_name, age, gender, caregiver_phone, area, created_by, sms_consent, sms_consent_at, sms_consent_by, is_demo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN datetime(\'now\') END, CASE WHEN ? = 1 THEN ? END, ?)')
+      .bind(id, fullName, age, gender, phone, area, user.id, smsConsent, smsConsent, smsConsent, user.id, user.isDemo ? 1 : 0)
       .run();
 
     await logAudit(db, request, actorOf(user), 'CASE_CREATED', { entityType: 'case', entityId: id, entityLabel: fullName, details: { area, smsConsent: smsConsent === 1 } });

@@ -40,9 +40,9 @@ export async function POST(request: Request) {
     await db.prepare('INSERT INTO recovery_throttle (email, ip, at) VALUES (?, ?, ?)').bind(email, ip, now).run();
 
     const generic = NextResponse.json({ success: true });
-    const user = await db.prepare('SELECT id, name, phone, active FROM users WHERE email = ?').bind(email).first<{ id: string; name: string; phone: string | null; active: number }>();
+    const user = await db.prepare('SELECT id, name, phone, active, is_demo FROM users WHERE email = ?').bind(email).first<{ id: string; name: string; phone: string | null; active: number; is_demo: number }>();
 
-    if (!user || user.active !== 1) {
+    if (!user || user.active !== 1 || user.is_demo === 1) {
       await hashCode('000000', randomHex(8)); // similar work whether or not the account exists
       await logAudit(db, request, null, 'PASSWORD_RESET_REQUESTED', { entityType: 'user', details: { email, result: 'no active account' }, withIp: true });
       return generic;

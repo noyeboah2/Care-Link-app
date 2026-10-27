@@ -129,6 +129,8 @@ const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ['children', 'sms_consent', 'sms_consent INTEGER NOT NULL DEFAULT 0'],
   ['children', 'sms_consent_at', 'sms_consent_at TEXT'],
   ['children', 'sms_consent_by', 'sms_consent_by TEXT'],
+  ['users', 'is_demo', 'is_demo INTEGER NOT NULL DEFAULT 0'],
+  ['children', 'is_demo', 'is_demo INTEGER NOT NULL DEFAULT 0'],
 ];
 
 let ready: Promise<void> | null = null;
